@@ -13,7 +13,7 @@ sites/
 
 Each site has its own `cms.config.ts` (collections, singletons and page blocks). Vefstjórn builds its screens from that config, so a new site with different pages needs no CMS changes. Each site deploys separately with its own Worker, D1 database and R2 bucket.
 
-Full architecture: `claude/architecture.md` in the Berghald.is project.
+Full architecture: [`docs/architecture.md`](docs/architecture.md). Agent instructions: [`CLAUDE.md`](CLAUDE.md).
 
 ## Getting started
 
