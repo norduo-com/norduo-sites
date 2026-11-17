@@ -1,0 +1,3 @@
+User-agent: *
+Disallow: /vefstjorn
+Disallow: /api/

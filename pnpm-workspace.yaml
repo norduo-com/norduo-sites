@@ -1,0 +1,8 @@
+packages:
+  - packages/*
+  - sites/*
+
+# Packages allowed to run install scripts (native binaries).
+onlyBuiltDependencies:
+  - esbuild
+  - workerd

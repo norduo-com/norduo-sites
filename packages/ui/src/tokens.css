@@ -1,0 +1,29 @@
+/*
+ * Shared design tokens as a Tailwind v4 theme.
+ * Spacing names follow the Berghald spacing system (claude/spacing-system.md):
+ *   p-g, px-in, py-s, mt-s2, p-cp, p-tp, rounded-box, rounded-card, rounded-img
+ * A site imports this after `@import "tailwindcss";` and can override any value.
+ */
+@theme {
+  /* Spacing */
+  --spacing-g: clamp(16px, 3vw, 40px); /* outer gutter */
+  --spacing-in: clamp(20px, 3.6vw, 56px); /* inner padding of big boxes */
+  --spacing-s: clamp(64px, 9vw, 128px); /* between sections */
+  --spacing-s2: clamp(40px, 5vw, 72px); /* page header → content, sub-blocks */
+  --spacing-cp: 16px; /* image card padding */
+  --spacing-tp: 28px; /* text card padding (22px on mobile) */
+  --spacing-grid: 16px; /* card grid gap */
+
+  /* Radius */
+  --radius-box: 36px; /* big boxes (28px on mobile) */
+  --radius-card: 28px; /* cards and standalone images (24px on mobile) */
+  --radius-img: 18px; /* images nested in cards */
+}
+
+@media (max-width: 767px) {
+  :root {
+    --spacing-tp: 22px;
+    --radius-box: 28px;
+    --radius-card: 24px;
+  }
+}

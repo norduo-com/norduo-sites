@@ -1,0 +1,17 @@
+{
+  "extends": "@norduo/config/tsconfig.base.json",
+  "include": [
+    ".react-router/types/**/*",
+    "app/**/*",
+    "workers/**/*",
+    "e2e/**/*",
+    "*.ts",
+    "*.js",
+    "worker-configuration.d.ts"
+  ],
+  "compilerOptions": {
+    "types": ["vite/client", "node"],
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": { "~/*": ["./app/*"] }
+  }
+}
