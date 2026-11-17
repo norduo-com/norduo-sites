@@ -18,19 +18,19 @@ Researched 2026-11-17 against Cloudflare's docs and the upstream model cards. Pr
 
 The Workers AI catalog lists two models under the Translation task ([models][models]):
 
-| Model | Icelandic? | Notes |
-|---|---|---|
-| `@cf/meta/m2m100-1.2b` | Yes. The upstream card lists "Icelandic (is)" among its 100 languages ([HF card][m2m-hf]). | Encoder-decoder model from 2020 ([paper][m2m-paper]). Input is `text`, `source_lang` (defaults to `en`) and `target_lang` ([CF card][m2m-cf]). There is no prompt and no way to give it a glossary or tone. Batch (async) is supported. The CF page mixes codes (`en`) and names (`english`) in its examples, so test which form works for `is`. |
-| `@cf/ai4bharat/indictrans2-en-indic-1B` | No | English to Indic languages only. |
+| Model                                   | Icelandic?                                                                                 | Notes                                                                                                                                                                                                                                                                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@cf/meta/m2m100-1.2b`                  | Yes. The upstream card lists "Icelandic (is)" among its 100 languages ([HF card][m2m-hf]). | Encoder-decoder model from 2020 ([paper][m2m-paper]). Input is `text`, `source_lang` (defaults to `en`) and `target_lang` ([CF card][m2m-cf]). There is no prompt and no way to give it a glossary or tone. Batch (async) is supported. The CF page mixes codes (`en`) and names (`english`) in its examples, so test which form works for `is`. |
+| `@cf/ai4bharat/indictrans2-en-indic-1B` | No                                                                                         | English to Indic languages only.                                                                                                                                                                                                                                                                                                                 |
 
 ### General LLMs (translate by prompt)
 
-| Model | Icelandic? | Source |
-|---|---|---|
-| `@cf/google/gemma-4-26b-a4b-it` | Probably. Pre-trained on 140+ languages, with "out-of-the-box support for 35+ languages". The card does not say whether Icelandic is in the 35. | [Gemma 4 model card][gemma4] |
-| `@cf/qwen/qwen3-30b-a3b-fp8` | Yes. Icelandic is in Qwen3's list of 119 languages. | [Qwen3 announcement][qwen3] |
-| Llama 3.x (`llama-3.1-8b`, `llama-3.2-*`, `llama-3.3-70b`) | No. Officially supported languages are English, German, French, Italian, Portuguese, Hindi, Spanish and Thai. | [Llama 3.1 card][llama31] |
-| `gpt-oss-20b` / `gpt-oss-120b`, `mistral-small-3.1-24b-instruct` | Not checked in depth. They are possible alternatives if the two above disappoint. | [models][models] |
+| Model                                                            | Icelandic?                                                                                                                                      | Source                       |
+| ---------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `@cf/google/gemma-4-26b-a4b-it`                                  | Probably. Pre-trained on 140+ languages, with "out-of-the-box support for 35+ languages". The card does not say whether Icelandic is in the 35. | [Gemma 4 model card][gemma4] |
+| `@cf/qwen/qwen3-30b-a3b-fp8`                                     | Yes. Icelandic is in Qwen3's list of 119 languages.                                                                                             | [Qwen3 announcement][qwen3]  |
+| Llama 3.x (`llama-3.1-8b`, `llama-3.2-*`, `llama-3.3-70b`)       | No. Officially supported languages are English, German, French, Italian, Portuguese, Hindi, Spanish and Thai.                                   | [Llama 3.1 card][llama31]    |
+| `gpt-oss-20b` / `gpt-oss-120b`, `mistral-small-3.1-24b-instruct` | Not checked in depth. They are possible alternatives if the two above disappoint.                                                               | [models][models]             |
 
 The catalog shows no "Workers Paid only" badge on any of these ([models][models]). Error code `5035` ("Model requires Workers Paid plan") exists, though ([errors][errors]), so confirm the chosen model on a free account during the test.
 
@@ -46,20 +46,20 @@ Free allowance: **10,000 neurons per day**, reset at 00:00 UTC. On Workers Free 
 
 Per-million-token rates ([pricing][pricing]):
 
-| Model | Input neurons / M tokens | Output neurons / M tokens |
-|---|---|---|
-| `m2m100-1.2b` | 31,050 | 31,050 |
-| `gemma-4-26b-a4b-it` | 9,091 | 27,273 |
-| `qwen3-30b-a3b-fp8` | 4,625 | 30,475 |
-| `llama-3.3-70b-instruct-fp8-fast` (for comparison) | 26,668 | 204,805 |
+| Model                                              | Input neurons / M tokens | Output neurons / M tokens |
+| -------------------------------------------------- | ------------------------ | ------------------------- |
+| `m2m100-1.2b`                                      | 31,050                   | 31,050                    |
+| `gemma-4-26b-a4b-it`                               | 9,091                    | 27,273                    |
+| `qwen3-30b-a3b-fp8`                                | 4,625                    | 30,475                    |
+| `llama-3.3-70b-instruct-fp8-fast` (for comparison) | 26,668                   | 204,805                   |
 
 Estimate for a typical save. This is an assumption: about 400 words of Icelandic across all translatable fields of a page. Icelandic tokenises inefficiently, so take roughly 1,000 input tokens of content plus 300 tokens of system prompt, and about 700 output tokens of English.
 
-| Model | Neurons per save | Saves per day within 10k |
-|---|---|---|
-| Gemma 4 26B | 1,300 × 9,091/M + 700 × 27,273/M ≈ **31** | ~320 |
-| Qwen3 30B (thinking off) | 1,300 × 4,625/M + 700 × 30,475/M ≈ **27** | ~370 |
-| M2M-100 1.2B | (1,000 + 700) × 31,050/M ≈ **53** | ~190 |
+| Model                    | Neurons per save                          | Saves per day within 10k |
+| ------------------------ | ----------------------------------------- | ------------------------ |
+| Gemma 4 26B              | 1,300 × 9,091/M + 700 × 27,273/M ≈ **31** | ~320                     |
+| Qwen3 30B (thinking off) | 1,300 × 4,625/M + 700 × 30,475/M ≈ **27** | ~370                     |
+| M2M-100 1.2B             | (1,000 + 700) × 31,050/M ≈ **53**         | ~190                     |
 
 Qwen3 is a reasoning model. Turn thinking off (for example, `/no_think` in the prompt) or the hidden reasoning tokens will multiply the output cost. Even a large 2,000-word page costs only a few hundred neurons. One way to stay safe: translate only fields whose Icelandic text has changed, by storing a hash of the source next to each translation. Then re-saving a page doesn't spend neurons again.
 
@@ -87,12 +87,12 @@ CPU: time spent waiting on `env.AI.run()` is I/O and does not count against the 
 
 From [errors][errors]:
 
-| Code | HTTP | Meaning |
-|---|---|---|
-| `3036` | 429 | "You have used up your daily free allocation of 10,000 neurons." Lasts until 00:00 UTC. |
-| `3040` | 429 | "Capacity temporarily exceeded, please try again." This is temporary, so retry once with backoff. |
-| `3007` / `3008` | 408 | Timeout / aborted |
-| `5035` | 403 | Model requires Workers Paid |
+| Code            | HTTP | Meaning                                                                                           |
+| --------------- | ---- | ------------------------------------------------------------------------------------------------- |
+| `3036`          | 429  | "You have used up your daily free allocation of 10,000 neurons." Lasts until 00:00 UTC.           |
+| `3040`          | 429  | "Capacity temporarily exceeded, please try again." This is temporary, so retry once with backoff. |
+| `3007` / `3008` | 408  | Timeout / aborted                                                                                 |
+| `5035`          | 403  | Model requires Workers Paid                                                                       |
 
 `env.AI.run()` throws on these. Recommended save flow in the Hono API:
 
