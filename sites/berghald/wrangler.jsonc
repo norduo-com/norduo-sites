@@ -1,22 +1,19 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "berghald",
+  // THROWAWAY SPIKE: measures SSR CPU time on Workers Free. Never merged.
+  "name": "berghald-ssr-spike",
   "main": "./workers/app.ts",
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
   "observability": { "enabled": true },
-  // Override locally in .dev.vars (see .dev.vars.example).
-  "vars": { "ENVIRONMENT": "production" },
+  "vars": { "ENVIRONMENT": "spike" },
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "berghald",
-      // Replace with the id from `wrangler d1 create berghald` before the first deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000",
-      "migrations_dir": "../../packages/cms/migrations",
+      "database_name": "berghald-ssr-spike",
+      "database_id": "961c8519-8d63-4106-ba4b-bd32507bda11",
     },
   ],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
-  // Nightly backup of D1 to R2 (03:00 UTC).
-  "triggers": { "crons": ["0 3 * * *"] },
 }
