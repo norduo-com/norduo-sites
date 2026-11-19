@@ -1,0 +1,12 @@
+{
+  // Throwaway spike Worker for the share-images spike. Never deploy as "berghald".
+  "name": "berghald-spike-share",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "workers_dev": true,
+  "observability": { "enabled": true },
+  "assets": { "directory": "./public", "binding": "ASSETS", "run_worker_first": true },
+  "images": { "binding": "IMAGES" },
+  // Throwaway bucket, deleted after the spike.
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-spike-share-tmp" }],
+}
