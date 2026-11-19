@@ -1,0 +1,12 @@
+// Throwaway spike Worker for "Media upload path: spike". Never deploy over `berghald`.
+{
+  "name": "berghald-spike-media",
+  "main": "./src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true },
+  "workers_dev": true,
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-spike-media" }],
+  "images": { "binding": "IMAGES" },
+  // R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY / ACCOUNT_ID come from `wrangler secret put`.
+}
