@@ -27,3 +27,27 @@ _Avoid_: Unpublished, hidden
 **Published** (UI: _Birt_):
 A document in a collection that the public site shows.
 _Avoid_: Live, active
+
+**Media library** (UI: _Myndasafn_):
+Every image and video uploaded to a site, in one place, with where each is used. An image filling a single image field can't be deleted until it's replaced there; one in a gallery is removed from it.
+_Avoid_: Assets, uploads, gallery
+
+**Overview** (UI: _Yfirlit_):
+Vefstjórn's start screen: recently edited documents, published and draft counts, and the site's shortcuts.
+_Avoid_: Dashboard, home
+
+**Subscription** (UI: _Áskrift_):
+A site's paid plan with Norduo, its billing history and receipts. Every site has one.
+_Avoid_: Billing, plan, account
+
+**Preview** (UI: _Forskoðun_, button _Forskoða_):
+A draft shown on its real public page, only to whoever holds a short-lived preview link for that one document. Everything else on the page shows published content. Only drafts can be previewed.
+_Avoid_: Staging, test page
+
+**Enquiry** (UI: _Fyrirspurn_):
+A message a visitor sends through a site's quote form: their contact details, answers and any photos. It is kept for a fixed time, longer if it becomes a job.
+_Avoid_: Lead, message, submission, ticket
+
+**Job** (UI: _Verk_, link _Merkja sem verk_):
+An enquiry the site owner has marked as having led to work. Marking it lengthens how long it is kept.
+_Avoid_: Order, conversion, won

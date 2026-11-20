@@ -44,3 +44,17 @@ Run `pnpm check` before calling work done. CI runs lint, typecheck, test and bui
 TypeScript 6 (pinned: typescript-eslint doesn't support 7 yet), React 19, React Router 8, Vite 8, Tailwind 4, Hono, Zod 4, Drizzle (D1), Vitest, Playwright, ESLint 9 (strict type-checked) and Prettier.
 
 These are planned but not installed yet; add each with the feature that needs it: TanStack Query, React Hook Form, react-i18next, React Three Fiber, Motion, Lenis, Sentry, Turnstile.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues on `norduo-com/norduo-sites`, via the `gh` CLI. The repo is public: tickets hold build decisions only, never client data. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default labels: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Multi-context: `GLOSSARY-MAP.md` points to `packages/cms/GLOSSARY.md` and `sites/berghald/GLOSSARY.md`. Written in English, with Icelandic UI labels noted per term. See `docs/agents/domain.md`.

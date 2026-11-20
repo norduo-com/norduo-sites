@@ -28,6 +28,10 @@ _Avoid_: Form template
 A customer's quote shown on the home page, with their name and place.
 _Avoid_: Testimonial
 
+**Hero scene**:
+The 3D animation at the top of the home page: the crane truck backs into a garden, builds a stone wall and drives away. Where it can't play, a still frame of its final moment, the **hero poster**, is shown instead.
+_Avoid_: 3D hero, animation, hero image
+
 **Home-page project** (UI: _Sýna á forsíðu_):
 A published project chosen for "Nýleg verkefni" on the home page. Only the first four in order are shown.
 _Avoid_: Featured project
