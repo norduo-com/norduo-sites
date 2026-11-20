@@ -197,6 +197,8 @@ export async function masterFromRaw(
     await discard()
     return { error: 'tooBig', status: 413 }
   }
+  // If the binding fails from here on (e.g. 503 out of CPU), tmp/<id> stays for the retry;
+  // the lifecycle rule removes it if nobody retries.
   const bytes = await bytesOf(raw.body as ReadableStream<Uint8Array>)
   const info = await IMAGES.info(streamOf(bytes)).catch(() => null)
   if (!info || !('width' in info)) {
@@ -300,12 +302,18 @@ export function createImageRoute() {
         headers: { ...headers, 'content-type': out.contentType() },
       })
     } catch {
-      // E.g. the month's transformations are used up (9422): the master is clean, so serve
-      // it as it is, and don't cache it for long.
+      // E.g. the month's transformations are used up (9422). The master is clean WebP, so a
+      // browser that takes WebP gets it as it is, briefly cached; others get a retryable error.
+      if (!c.req.header('accept')?.includes('image/webp'))
+        return c.body(null, 503, { 'retry-after': '300' })
       const fallback = await c.env.MEDIA.get(masterKey(id))
       if (!fallback) return c.notFound()
       return new Response(fallback.body, {
-        headers: { 'content-type': 'image/webp', 'cache-control': 'public, max-age=300' },
+        headers: {
+          'content-type': 'image/webp',
+          'cache-control': 'public, max-age=300',
+          vary: 'Accept',
+        },
       })
     }
     if (cache) c.executionCtx.waitUntil(cache.put(cacheKey, response.clone()))
