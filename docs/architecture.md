@@ -27,6 +27,7 @@ The CMS (Vefstjórn) is a shared package so future client sites can reuse it. Ea
 The CMS knows nothing about any site's pages or elements. Each site describes its content in a config, and Vefstjórn builds its screens from that config.
 
 **Three layers**
+
 1. **`packages/cms` (generic):**
    - admin shell, login, list and edit screens, Myndasafn (media library)
    - photo upload to R2, saving to D1, Hono routes
@@ -35,11 +36,12 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
    - collections (e.g. Verkefni, Þjónusta)
    - singletons (e.g. settings)
    - page blocks (e.g. hero, services carousel, before/after, testimonials, quote form)
-3. **Site components:** each site renders its own blocks. The CMS stores *what* a block contains, and the site decides *how* it looks.
+3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
 **Pages = ordered lists of blocks.** A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
 
 **Storage:**
+
 - A generic D1 schema shared by all sites: a `documents` table with `type`, `slug`, `locale`, `status` (draft/published), `data` (JSON) and timestamps, a `media` table and an `enquiries` table.
 - Every site uses the same migrations.
 - Zod schemas generated from the config validate data on save and give the frontend typed content.
@@ -58,18 +60,18 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 
 ## 4. Hosting – Cloudflare, no paid server
 
-| Part | Where |
-|---|---|
-| Public site | Worker SSR + edge cache, refreshed on publish |
-| Vefstjórn UI | `berghald.is/vefstjorn`, same Worker |
-| API | Same Worker, running **Hono** at `/api/cms` |
-| Content | **D1** (SQLite), accessed with **Drizzle ORM** + migrations |
-| Photos | Originals in **R2**. **Image Transformations** produce sizes and formats on request (WebP/AVIF), with a small fixed set of widths to stay under 5,000 unique transformations/month. |
-| Translation | **Workers AI** translation model, called from the Hono API |
-| Admin login | **Cloudflare Access** in front of `/vefstjorn` and `/api/cms/admin` |
-| Quote form spam | **Cloudflare Turnstile** |
-| Quote form | Saved to D1 (`enquiries`) **and** emailed to the client via Worker `send_email`. Resend free tier only if customer confirmation emails are needed. |
-| Domain | berghald.is via ISNIC, DNS on Cloudflare |
+| Part            | Where                                                                                                                                                                                                                                                                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Public site     | Worker SSR + edge cache, refreshed on publish                                                                                                                                                                                                                                                          |
+| Vefstjórn UI    | `berghald.is/vefstjorn`, same Worker                                                                                                                                                                                                                                                                   |
+| API             | Same Worker, running **Hono** at `/api/cms`                                                                                                                                                                                                                                                            |
+| Content         | **D1** (SQLite), accessed with **Drizzle ORM** + migrations                                                                                                                                                                                                                                            |
+| Photos          | Master images (WebP, ≤ 2560 px, no metadata) in **R2**; originals are not kept (see `packages/cms/docs/adr/0001-master-image-only.md`). **Image Transformations** produce sizes and formats on request (WebP/AVIF), with a small fixed set of widths to stay under 5,000 unique transformations/month. |
+| Translation     | **Workers AI** translation model, called from the Hono API                                                                                                                                                                                                                                             |
+| Admin login     | **Cloudflare Access** in front of `/vefstjorn` and `/api/cms/admin`                                                                                                                                                                                                                                    |
+| Quote form spam | **Cloudflare Turnstile**                                                                                                                                                                                                                                                                               |
+| Quote form      | Saved to D1 (`enquiries`) **and** emailed to the client via Worker `send_email`. Resend free tier only if customer confirmation emails are needed.                                                                                                                                                     |
+| Domain          | berghald.is via ISNIC, DNS on Cloudflare                                                                                                                                                                                                                                                               |
 
 Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB, R2 10 GB, 5,000 unique image transformations/month, a daily Workers AI allowance). The only fixed cost is the .is domain.
 
@@ -78,7 +80,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **Upload limit:**
   - Images: up to 100 MB each, through the Worker (the Free plan's request body limit is 100 MB).
   - Larger files such as videos (up to 500 MB) are uploaded straight to R2 with a presigned URL.
-- **Formats:** JPG, PNG, HEIC and WebP. The original is kept, and web versions are generated by Image Transformations as needed.
+- **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
 - **Myndasafn (media library):** all images in one place, with filters (by where they're used, unused, without alt text), search, upload, and "Velja úr myndasafni" (pick from library) in the project editor.
   - Images used by a service, team member or piece of equipment can't be deleted until they're replaced there.
