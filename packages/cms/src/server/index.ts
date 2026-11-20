@@ -152,7 +152,8 @@ async function resolveSlugs(
       out[name] = kept
       continue
     }
-    const source = input.locale === input.defaultLocale || !own ? data[from] : own.data[from]
+    // Made from the default locale only: an item created in another locale waits for it.
+    const source = input.locale === input.defaultLocale ? data[from] : own?.data[from]
     const base = slugify(typeof source === 'string' ? source : '')
     if (!base) continue
     const taken = await db

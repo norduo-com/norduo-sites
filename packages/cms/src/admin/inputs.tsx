@@ -145,7 +145,7 @@ export function FieldInput(props: FieldInputProps) {
       <input
         {...common}
         type={field.kind}
-        inputMode={field.kind === 'tel' ? 'tel' : field.kind === 'email' ? 'email' : 'url'}
+        inputMode={field.kind}
         autoComplete="off"
         value={str}
         onChange={(e) => {
@@ -304,7 +304,7 @@ export function FieldInput(props: FieldInputProps) {
   if (is(field, 'group')) {
     const group = (value ?? {}) as Record<string, unknown>
     return grouped(
-      <div className="gap-4 border-neutral-200 flex flex-col rounded-box border p-in">
+      <div className="gap-4 rounded-lg border-neutral-200 p-4 flex flex-col border">
         {Object.entries(field.fields).map(([child, def]) => (
           <FieldInput
             key={child}

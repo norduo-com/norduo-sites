@@ -3,7 +3,7 @@ import { z } from 'zod'
 /**
  * Rich text is stored as a small tree, not HTML, so the Worker never has to sanitize
  * markup: Zod checks it on save and `richTextToHtml` escapes it on the way out.
- * Marks are `bold`, `italic` and the extra ones a field declares (e.g. `muted` → "Grátt").
+ * Marks are `bold`, `italic` and the extra ones a field declares, e.g. `muted`.
  */
 
 export const BUILTIN_MARKS = ['bold', 'italic'] as const
@@ -12,6 +12,7 @@ export const BUILTIN_MARKS = ['bold', 'italic'] as const
 export const safeHref = z.string().regex(/^(https?:\/\/|mailto:|tel:)\S+$/)
 
 export interface RichTextInline {
+  /** A newline is a line break within the block. */
   text: string
   marks?: string[]
   href?: string
@@ -56,7 +57,7 @@ export function richTextToHtml(
 ): string {
   const inline = (i: RichTextInline) => {
     const marks = i.marks ?? []
-    let html = escape(i.text)
+    let html = escape(i.text).replace(/\n/g, '<br>')
     for (const m of marks) {
       if ((BUILTIN_MARKS as readonly string[]).includes(m)) continue
       const data = options.editor ? ` data-mark="${escape(m)}"` : ''
@@ -113,8 +114,9 @@ export function richTextFromDom(root: DomNode, siteMarks: readonly string[]): Ri
   function collect(node: DomNode, marks: ReadonlySet<string>, href: string | undefined) {
     const out: RichTextInline[] = []
     const walk = (n: DomNode, m: ReadonlySet<string>, h: string | undefined) => {
-      if (n.nodeType === 3) {
-        const text = (n.textContent ?? '').replace(/\u00a0/g, ' ')
+      const isBreak = n.nodeType === 1 && n.nodeName === 'BR'
+      if (n.nodeType === 3 || isBreak) {
+        const text = isBreak ? '\n' : (n.textContent ?? '').replace(/\u00a0/g, ' ')
         if (!text) return
         const sorted = order.filter((x) => m.has(x))
         out.push({ text, ...(sorted.length ? { marks: sorted } : {}), ...(h ? { href: h } : {}) })
@@ -134,7 +136,11 @@ export function richTextFromDom(root: DomNode, siteMarks: readonly string[]): Ri
       for (const c of children(n)) walk(c, next, link)
     }
     walk(node, marks, href)
-    return merge(out)
+    const merged = merge(out)
+    // Browsers end a line with a <br> that isn't a line break of its own.
+    const last = merged.at(-1)
+    if (last) last.text = last.text.replace(/\n+$/, '')
+    return merged.filter((i) => i.text)
   }
 
   const blocks: RichTextValue = []

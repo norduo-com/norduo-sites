@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { block, blocks, defineCms, gallery, schemaOf, select, text } from './index'
+import { block, blocks, defineCms, gallery, schemaOf, select, slug, text } from './index'
 import { createCmsApi } from './server'
 
 const cms = defineCms({
@@ -59,6 +59,15 @@ describe('schemaOf', () => {
 })
 
 describe('defineCms', () => {
+  it('rejects a slug made from a field the collection does not have', () => {
+    expect(() =>
+      defineCms({
+        site: { id: 'x', name: 'X', url: 'https://x.is', locales: ['is'], defaultLocale: 'is' },
+        collections: { projects: { fields: { title: text(), slug: slug({ from: 'titel' }) } } },
+      }),
+    ).toThrow(/titel/)
+  })
+
   it('rejects a default locale that is not listed', () => {
     expect(() =>
       defineCms({

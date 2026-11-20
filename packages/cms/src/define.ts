@@ -44,9 +44,15 @@ export interface CmsConfig {
 
 /** Identity helper that keeps the literal types of the config. */
 export function defineCms<const C extends CmsConfig>(config: C): C {
-  for (const name of Object.keys(config.collections)) {
+  for (const [name, collection] of Object.entries(config.collections)) {
     if (!/^[a-z][a-z0-9-]*$/.test(name)) {
       throw new Error(`Collection name "${name}" must be lowercase letters, digits and dashes`)
+    }
+    for (const [field, def] of Object.entries(collection.fields)) {
+      const from = def.kind === 'slug' ? (def as { from?: string }).from : undefined
+      if (from !== undefined && !Object.hasOwn(collection.fields, from)) {
+        throw new Error(`Slug "${name}.${field}" is made from "${from}", which isn't a field`)
+      }
     }
   }
   if (!config.site.locales.includes(config.site.defaultLocale)) {

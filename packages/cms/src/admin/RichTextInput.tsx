@@ -78,12 +78,26 @@ export function RichTextInput({
     const inside = start?.closest(`[data-mark="${CSS.escape(mark)}"]`)
     if (inside && ref.current?.contains(inside)) {
       inside.replaceWith(...Array.from(inside.childNodes))
-    } else if (!range.collapsed) {
-      const span = document.createElement('span')
-      span.dataset.mark = mark
-      span.className = marks[mark] ?? ''
-      span.appendChild(range.extractContents())
-      range.insertNode(span)
+    } else if (!range.collapsed && ref.current) {
+      // Wrap each selected piece of text on its own, so a selection over several
+      // paragraphs or list items keeps them apart.
+      const walker = document.createTreeWalker(ref.current, NodeFilter.SHOW_TEXT)
+      const pieces: Text[] = []
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (n instanceof Text && range.intersectsNode(n)) pieces.push(n)
+      }
+      const { startContainer, startOffset, endContainer, endOffset } = range
+      for (const piece of pieces) {
+        let target = piece
+        if (target === endContainer && endOffset < target.length) target.splitText(endOffset)
+        if (target === startContainer && startOffset > 0) target = target.splitText(startOffset)
+        if (!target.data) continue
+        const span = document.createElement('span')
+        span.dataset.mark = mark
+        span.className = marks[mark] ?? ''
+        target.replaceWith(span)
+        span.appendChild(target)
+      }
     }
     read()
   }

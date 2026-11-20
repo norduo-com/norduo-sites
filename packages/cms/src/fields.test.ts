@@ -32,6 +32,7 @@ describe('url', () => {
     expect(valid(fields, { facebook: 'https://facebook.com/berghald' })).toBe(true)
     expect(valid(fields, { facebook: 'facebook.com/berghald' })).toBe(false)
     expect(valid(fields, { facebook: 'javascript:alert(1)' })).toBe(false)
+    expect(valid(fields, { facebook: 'https://bergháld.is/um-okkur' })).toBe(true)
   })
 })
 

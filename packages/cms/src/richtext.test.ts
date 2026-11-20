@@ -149,4 +149,17 @@ describe('richTextFromDom', () => {
     )
     expect(richTextFromDom(root, marks)).toEqual([{ type: 'p', children: [{ text: 'ab' }] }])
   })
+
+  it('keeps a line break inside a paragraph as a newline', () => {
+    const root = el('div', {}, el('p', {}, txt('Berghald ehf.'), el('br', {}), txt('Hafnarfirði')))
+    expect(richTextFromDom(root, marks)).toEqual([
+      { type: 'p', children: [{ text: 'Berghald ehf.\nHafnarfirði' }] },
+    ])
+  })
+})
+
+describe('richTextToHtml line breaks', () => {
+  it('writes a newline as <br>', () => {
+    expect(richTextToHtml([{ type: 'p', children: [{ text: 'a\nb' }] }])).toBe('<p>a<br>b</p>')
+  })
 })

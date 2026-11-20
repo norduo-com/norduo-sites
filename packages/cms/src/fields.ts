@@ -54,6 +54,8 @@ export function schemaOf<F extends Fields>(fields: F): z.ZodObject<ShapeOf<F>> {
 
 // ---------- field builders ----------
 
+const isDistinct = (list: readonly unknown[]) => new Set(list).size === list.length
+
 /** For values that are never translated (addresses, numbers, links): no `i18n` option. */
 export type PlainOptions<R extends boolean | undefined = undefined> = Omit<FieldOptions<R>, 'i18n'>
 
@@ -154,14 +156,12 @@ export function multiSelect<
   const schema = z
     .array(z.enum(choices))
     .min(min)
-    .refine((v) => new Set(v).size === v.length, { message: 'Duplicate choice' })
+    .refine(isDistinct, { message: 'Duplicate choice' })
   const required = (min > 0 || options.required === true) as M extends 0 ? R : true
   return { ...make('multiSelect', schema, { required }), choices, min }
 }
 
-const distinctIds = z
-  .array(z.string().min(1))
-  .refine((v) => new Set(v).size === v.length, { message: 'Duplicate item' })
+const distinctIds = z.array(z.string().min(1)).refine(isDistinct, { message: 'Duplicate item' })
 
 /** A link to one item in another collection, or to several with `many: true`. Stores ids. */
 export function relation<R extends boolean | undefined = undefined>(
@@ -187,7 +187,7 @@ export function repeater<F extends Fields, R extends boolean | undefined = undef
 export const slugValue = z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/)
 
 /**
- * The document's address on the site, e.g. `/verkefni/<slug>`. Vefstjórn makes it from the
+ * The document's address on the site, e.g. `/<page>/<slug>`. Vefstjórn makes it from the
  * `from` field while the document is a draft and locks it on first publish. Editors can't
  * type it. Only top-level fields of a collection get a slug.
  */

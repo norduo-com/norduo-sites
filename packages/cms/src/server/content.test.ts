@@ -243,4 +243,16 @@ describe('slug fields', () => {
     await save(id, { title: 'Grjótveggur' })
     expect(await slugOf(id, 'en')).toBe('grjotveggur')
   })
+
+  it('waits for the Icelandic title before making a slug for an item created in English', async () => {
+    const res = await call('POST', '/admin/content/projects', {
+      status: 'draft',
+      locale: 'en',
+      data: { title: 'Paving' },
+    })
+    const id = (await res.json<{ slug: string }>()).slug
+    expect(await slugOf(id, 'en')).toBeUndefined()
+    await save(id, { title: 'Hellulögn' })
+    expect(await slugOf(id, 'en')).toBe('hellulogn')
+  })
 })
