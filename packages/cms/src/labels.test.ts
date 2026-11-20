@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { defineCms } from './define'
-import { block, blocks, repeater, select, text } from './fields'
+import { block, blocks, repeater, richText, select, text } from './fields'
 import { fieldLabelKeys, missingLabels } from './labels'
 
 const cms = defineCms({
@@ -87,5 +87,23 @@ describe('fieldLabelKeys', () => {
       'blocks.intro.fields.heading.label',
       'fields.heading.label',
     ])
+  })
+})
+
+describe('rich text marks', () => {
+  const withMarks = defineCms({
+    site: { id: 't', name: 'T', url: 'https://t.is', locales: ['is'], defaultLocale: 'is' },
+    collections: {
+      projects: { fields: { body: richText({ marks: { muted: 'text-muted' } }) } },
+    },
+  })
+  const base = {
+    collections: { projects: { label: 'Verkefni' } },
+    fields: { body: { label: 'Texti' } },
+  }
+
+  it('needs a label for each site mark, site-wide or under the field', () => {
+    expect(missingLabels(withMarks, base)).toEqual(['collections.projects.fields.body.marks.muted'])
+    expect(missingLabels(withMarks, { ...base, marks: { muted: 'Grátt' } })).toEqual([])
   })
 })

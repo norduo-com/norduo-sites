@@ -3,11 +3,8 @@ import { useTranslation } from 'react-i18next'
 import type { z } from 'zod'
 
 import { type Fields, schemaOf } from '../fields'
-import { fieldHelpKeys, fieldLabelKeys } from '../labels'
 import { type AdminApi, ApiError, type Status } from './api'
-
-type TextField = Fields[string] & { kind: 'text'; multiline: boolean; max?: number }
-const isText = (f: Fields[string]): f is TextField => f.kind === 'text'
+import { type FieldErrors, FieldInput } from './inputs'
 
 export interface EditorDoc {
   slug: string | null
@@ -15,25 +12,43 @@ export interface EditorDoc {
   data: Record<string, unknown>
 }
 
-/** Field errors keyed by field name, as `vefstjorn` keys with options. */
-type FieldErrors = Record<string, { key: string; max?: number }>
+/** The value at a Zod issue's path, to tell a missing value from a wrong one. */
+function valueAt(data: unknown, path: PropertyKey[]): unknown {
+  return path.reduce<unknown>(
+    (node, key) =>
+      typeof node === 'object' && node !== null
+        ? (node as Record<PropertyKey, unknown>)[key]
+        : undefined,
+    data,
+  )
+}
 
-function errorsFrom(issues: z.core.$ZodIssue[]): FieldErrors {
+function errorsFrom(issues: z.core.$ZodIssue[], data: unknown): FieldErrors {
   const out: FieldErrors = {}
   for (const issue of issues) {
-    const name = String(issue.path[0] ?? '')
-    if (name in out) continue
-    if (issue.code === 'too_big') out[name] = { key: 'errors.tooLong', max: Number(issue.maximum) }
-    else if (issue.code === 'too_small' || issue.code === 'invalid_type')
-      out[name] = { key: 'errors.required' }
-    else out[name] = { key: 'errors.invalid' }
+    const path = issue.path.map(String).join('.')
+    if (path in out) continue
+    if (issue.code === 'too_big') out[path] = { key: 'errors.tooLong', max: Number(issue.maximum) }
+    else if (issue.code === 'too_small' && issue.origin === 'array' && Number(issue.minimum) > 1)
+      out[path] = { key: 'errors.tooFew', min: Number(issue.minimum) }
+    else if (
+      (issue.code === 'too_small' && issue.origin !== 'number') ||
+      (issue.code === 'invalid_type' && valueAt(data, issue.path) === undefined)
+    )
+      out[path] = { key: 'errors.required' }
+    else if (issue.code === 'invalid_format') {
+      const format = (issue as { format?: string }).format
+      out[path] = {
+        key: format === 'email' || format === 'url' ? `errors.${format}` : 'errors.invalid',
+      }
+    } else out[path] = { key: 'errors.invalid' }
   }
   return out
 }
 
 /**
- * Generic editor for one document, built from its fields. Text fields are editable here;
- * other field types keep their stored value until their editors are built.
+ * Generic editor for one document, built from its fields (see `inputs.tsx`). Field types
+ * without an input yet keep their stored value.
  */
 export function Editor({
   api,
@@ -64,6 +79,8 @@ export function Editor({
   const [busy, setBusy] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
 
+  const hasServerValues = Object.values(fields).some((f) => f.kind === 'slug')
+
   const failure = (err: unknown, fallback: string) =>
     err instanceof ApiError && err.status === 401 ? t('errors.unauthorized') : t(fallback)
 
@@ -72,7 +89,7 @@ export function Editor({
     setMessage(null)
     const parsed = schemaOf(fields).safeParse(values)
     if (!parsed.success) {
-      setErrors(errorsFrom(parsed.error.issues))
+      setErrors(errorsFrom(parsed.error.issues, values))
       setMessage({ tone: 'error', text: t('errors.fixFields') })
       return
     }
@@ -82,8 +99,11 @@ export function Editor({
       const input = { status: drafts ? status : 'published', data: values } as const
       const slug = doc.slug ?? (await api.create(type, input)).slug
       if (doc.slug) await api.update(type, doc.slug, input)
+      // The server fills some values itself (slugs), so show what it stored.
+      const data = hasServerValues ? (await api.get(type, slug)).data : values
+      setValues(data)
       setMessage({ tone: 'ok', text: t('editor.saved') })
-      onSaved({ slug, status: input.status, data: values })
+      onSaved({ slug, status: input.status, data })
     } catch (err) {
       setMessage({ tone: 'error', text: failure(err, 'errors.saveFailed') })
     } finally {
@@ -105,61 +125,21 @@ export function Editor({
 
   return (
     <form onSubmit={(e) => void save(e)} noValidate className="gap-5 flex flex-col">
-      {Object.entries(fields).map(([name, field]) => {
-        const id = `${formId}-${name}`
-        const label = t(fieldLabelKeys(owner, name), { ns: 'cms' })
-        const help = t(fieldHelpKeys(owner, name), { ns: 'cms', defaultValue: '' })
-        const error = errors[name]
-        const describedBy = [help && `${id}-help`, error && `${id}-error`].filter(Boolean).join(' ')
-
-        if (!isText(field)) {
-          return (
-            <div key={name} className="gap-1 flex flex-col">
-              <span className="font-medium">{label}</span>
-              <p className="text-sm text-neutral-500">{t('editor.unsupported')}</p>
-            </div>
-          )
-        }
-
-        const value = typeof values[name] === 'string' ? values[name] : ''
-        const common = {
-          id,
-          name,
-          value,
-          maxLength: field.max,
-          required: field.required,
-          'aria-invalid': error ? true : undefined,
-          'aria-describedby': describedBy || undefined,
-          onChange: (e: { target: { value: string } }) => {
-            setValues((v) => ({ ...v, [name]: e.target.value }))
-          },
-          className:
-            'rounded-lg border border-neutral-300 bg-white px-3 py-2 aria-invalid:border-red-600',
-        }
-        return (
-          <div key={name} className="gap-1 flex flex-col">
-            <label htmlFor={id} className="font-medium">
-              {label}
-              {field.required && <span aria-hidden="true"> *</span>}
-            </label>
-            {field.multiline ? (
-              <textarea rows={4} {...common} />
-            ) : (
-              <input type="text" {...common} />
-            )}
-            {help && (
-              <p id={`${id}-help`} className="text-sm text-neutral-500">
-                {help}
-              </p>
-            )}
-            {error && (
-              <p id={`${id}-error`} className="text-sm text-red-700">
-                {t(error.key, { max: error.max })}
-              </p>
-            )}
-          </div>
-        )
-      })}
+      {Object.entries(fields).map(([name, field]) => (
+        <FieldInput
+          key={name}
+          owner={owner}
+          name={name}
+          field={field}
+          path={name}
+          idPrefix={formId}
+          value={values[name]}
+          errors={errors}
+          onChange={(value) => {
+            setValues((v) => ({ ...v, [name]: value }))
+          }}
+        />
+      ))}
 
       {drafts && (
         <fieldset className="gap-4 flex">

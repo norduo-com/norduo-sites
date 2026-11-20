@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { defineCms } from '../define'
-import { text } from '../fields'
+import { slug, text } from '../fields'
 import { testDatabase } from '../test/d1'
 import { contentVersion, createCmsApi, listPublished } from './index'
 
@@ -20,6 +20,13 @@ const cms = defineCms({
       fields: {
         name: text({ required: true, i18n: true }),
         description: text({ i18n: true, max: 120, multiline: true }),
+      },
+    },
+    projects: {
+      drafts: true,
+      fields: {
+        title: text({ required: true, i18n: true }),
+        slug: slug({ from: 'title' }),
       },
     },
   },
@@ -175,5 +182,77 @@ describe('listPublished (site loaders)', () => {
     const items = await listPublished(db.d1, cms, 'equipment', { fields: ['name'] })
     expect(items.map((i) => i.data)).toEqual([{ name: 'Kranabíll' }, { name: 'Vörubíll' }])
     expect(items.every((i) => i.slug.length > 0)).toBe(true)
+  })
+})
+
+describe('slug fields', () => {
+  async function createProject(title: string, status: 'draft' | 'published') {
+    const res = await call('POST', '/admin/content/projects', { status, data: { title } })
+    expect(res.status).toBe(201)
+    return (await res.json<{ slug: string }>()).slug
+  }
+  const save = (id: string, data: Record<string, unknown>, status = 'draft', locale = 'is') =>
+    call('PUT', `/admin/content/projects/${id}`, { status, locale, data })
+  async function slugOf(id: string, locale = 'is') {
+    const res = await call('GET', `/admin/content/projects/${id}?locale=${locale}`)
+    return (await res.json<{ data: { slug?: string } }>()).data.slug
+  }
+
+  it('makes the slug from the title, spelling Icelandic letters in plain ASCII', async () => {
+    const id = await createProject('Þökulögn og hellur í Garðabæ!', 'draft')
+    expect(await slugOf(id)).toBe('thokulogn-og-hellur-i-gardabae')
+  })
+
+  it('follows the title while the project is a draft, ignoring a slug sent by the client', async () => {
+    const id = await createProject('Hellulögn', 'draft')
+    await save(id, { title: 'Hellulögn í Kópavogi', slug: 'eitthvad-annad' })
+    expect(await slugOf(id)).toBe('hellulogn-i-kopavogi')
+  })
+
+  it('locks on first publish: later title changes and drafts keep it', async () => {
+    const id = await createProject('Hellulögn', 'draft')
+    await save(id, { title: 'Hellulögn' }, 'published')
+    await save(id, { title: 'Ný hellulögn', slug: 'ny-hellulogn' }, 'published')
+    await save(id, { title: 'Ný hellulögn' }, 'draft')
+    expect(await slugOf(id)).toBe('hellulogn')
+  })
+
+  it('locks when the project is created as Birt', async () => {
+    const id = await createProject('Grjóthleðsla', 'published')
+    await save(id, { title: 'Grjótveggur' }, 'published')
+    expect(await slugOf(id)).toBe('grjothledsla')
+  })
+
+  it('adds a number when another project already has the slug', async () => {
+    await createProject('Hellulögn', 'published')
+    const second = await createProject('Hellulögn', 'draft')
+    const third = await createProject('Hellulögn', 'draft')
+    expect(await slugOf(second)).toBe('hellulogn-2')
+    expect(await slugOf(third)).toBe('hellulogn-3')
+  })
+
+  it('shares one slug across locales, made from the Icelandic title', async () => {
+    const id = await createProject('Hellulögn', 'draft')
+    await save(id, { title: 'Paving' }, 'draft', 'en')
+    expect(await slugOf(id, 'en')).toBe('hellulogn')
+  })
+
+  it('updates the English row when the Icelandic title changes a draft slug', async () => {
+    const id = await createProject('Hellulögn', 'draft')
+    await save(id, { title: 'Paving' }, 'draft', 'en')
+    await save(id, { title: 'Grjótveggur' })
+    expect(await slugOf(id, 'en')).toBe('grjotveggur')
+  })
+
+  it('waits for the Icelandic title before making a slug for an item created in English', async () => {
+    const res = await call('POST', '/admin/content/projects', {
+      status: 'draft',
+      locale: 'en',
+      data: { title: 'Paving' },
+    })
+    const id = (await res.json<{ slug: string }>()).slug
+    expect(await slugOf(id, 'en')).toBeUndefined()
+    await save(id, { title: 'Hellulögn' })
+    expect(await slugOf(id, 'en')).toBe('hellulogn')
   })
 })

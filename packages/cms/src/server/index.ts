@@ -5,7 +5,8 @@ import { z } from 'zod'
 
 import { documents, enquiries, media, siteMeta } from '../db/schema'
 import type { CmsConfig, DocOf } from '../define'
-import { schemaOf } from '../fields'
+import { type Fields, schemaOf } from '../fields'
+import { slugify, uniqueSlug } from '../slug'
 import { verifyAccessJwt } from './access'
 
 export interface CmsBindings {
@@ -62,7 +63,7 @@ export async function contentVersion(db: D1Database): Promise<number> {
   return row?.value ?? 0
 }
 
-function bumpContentVersion(db: ReturnType<typeof drizzle>) {
+function bumpContentVersion(db: Db) {
   return db
     .insert(siteMeta)
     .values({ key: CONTENT_VERSION, value: 1 })
@@ -104,6 +105,86 @@ export async function listPublished<
       Object.entries(JSON.parse(row.data) as Record<string, unknown>).filter(([, v]) => v !== null),
     ) as Partial<Pick<DocOf<C, K>, F>>,
   }))
+}
+
+type Db = ReturnType<typeof drizzle>
+
+/** Names in SQL JSON paths come from the config; only plain identifiers are allowed. */
+const isIdentifier = (name: string) => /^[A-Za-z_]\w*$/.test(name)
+
+/**
+ * Fills the `slug()` fields of a save. A slug is shared by every locale of a document. Until
+ * the document is first published it is made from its `from` field in the default locale,
+ * with a number added if another document of the type has it; after that it never changes.
+ * Whatever the client sent is ignored. Returns the slugs to write to every locale's row.
+ */
+async function resolveSlugs(
+  db: Db,
+  input: { type: string; id: string | null; locale: string; defaultLocale: string },
+  fields: Fields,
+  data: Record<string, unknown>,
+): Promise<Record<string, string>> {
+  const slugFields = Object.entries(fields).flatMap(([name, f]) =>
+    f.kind === 'slug' && isIdentifier(name)
+      ? [[name, (f as { from?: string }).from ?? ''] as const]
+      : [],
+  )
+  if (slugFields.length === 0) return {}
+
+  const rows = input.id
+    ? await db
+        .select({
+          locale: documents.locale,
+          data: documents.data,
+          publishedAt: documents.publishedAt,
+        })
+        .from(documents)
+        .where(and(eq(documents.type, input.type), eq(documents.slug, input.id)))
+    : []
+  const locked = rows.some((r) => r.publishedAt !== null)
+  const own = rows.find((r) => r.locale === input.defaultLocale)
+
+  const out: Record<string, string> = {}
+  for (const [name, from] of slugFields) {
+    Reflect.deleteProperty(data, name)
+    const kept = own?.data[name] ?? rows.find((r) => typeof r.data[name] === 'string')?.data[name]
+    if (typeof kept === 'string' && kept && (locked || input.locale !== input.defaultLocale)) {
+      out[name] = kept
+      continue
+    }
+    // Made from the default locale only: an item created in another locale waits for it.
+    const source = input.locale === input.defaultLocale ? data[from] : own?.data[from]
+    const base = slugify(typeof source === 'string' ? source : '')
+    if (!base) continue
+    const taken = await db
+      .select({ value: sql<string | null>`json_extract(${documents.data}, ${`$.${name}`})` })
+      .from(documents)
+      .where(
+        and(
+          eq(documents.type, input.type),
+          input.id ? sql`${documents.slug} <> ${input.id}` : undefined,
+        ),
+      )
+    out[name] = uniqueSlug(base, new Set(taken.flatMap((r) => (r.value ? [r.value] : []))))
+  }
+  Object.assign(data, out)
+  return out
+}
+
+/** Writes slugs into every locale's row of a document. */
+function setSlugs(db: Db, type: string, id: string, slugs: Record<string, string>) {
+  const entries = Object.entries(slugs)
+  if (entries.length === 0) return []
+  const set = entries.reduce(
+    (expr, [name, value]) => sql`json_set(${expr}, ${`$.${name}`}, ${value})`,
+    sql`${documents.data}`,
+  )
+  return [
+    db
+      .update(documents)
+      .set({ data: set })
+      .where(and(eq(documents.type, type), eq(documents.slug, id))),
+  ]
 }
 
 /**
@@ -224,7 +305,11 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   })
 
   /** Validates a save body against the type's fields, or returns an error response. */
-  async function readSave(c: { req: { json: () => Promise<unknown> } }, type: string) {
+  async function readSave(
+    c: { req: { json: () => Promise<unknown> }; env: CmsBindings },
+    type: string,
+    id: string | null,
+  ) {
     const fields = fieldsOf(type)
     if (!fields) return { error: 404 as const }
     const body = saveInput.safeParse(await c.req.json().catch(() => null))
@@ -234,10 +319,18 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     const data = schemaOf(fields).safeParse(body.data.data)
     if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
     const status = hasDrafts(type) ? (body.data.status ?? 'draft') : 'published'
+    const values = data.data as Record<string, unknown>
+    const slugs = await resolveSlugs(
+      drizzle(c.env.DB),
+      { type, id, locale, defaultLocale: config.site.defaultLocale },
+      fields,
+      values,
+    )
     return {
       locale,
       status,
-      data: data.data as Record<string, unknown>,
+      slugs,
+      data: values,
       needsReview: body.data.needsReview ?? false,
     }
   }
@@ -245,7 +338,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   app.post('/admin/content/:type', async (c) => {
     const type = c.req.param('type')
     if (!Object.hasOwn(collections, type)) return c.json({ error: 'Unknown collection' }, 404)
-    const save = await readSave(c, type)
+    const save = await readSave(c, type, null)
     if ('error' in save) return c.json({ error: save.issues ?? 'Unknown type' }, save.error)
 
     const db = drizzle(c.env.DB)
@@ -276,7 +369,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   app.put('/admin/content/:type/:slug', async (c) => {
     const { type, slug } = c.req.param()
-    const save = await readSave(c, type)
+    const save = await readSave(c, type, slug)
     if ('error' in save) return c.json({ error: save.issues ?? 'Unknown type' }, save.error)
 
     const db = drizzle(c.env.DB)
@@ -313,6 +406,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
         .where(
           and(ofDoc, eq(documents.status, 'published'), sql`${documents.publishedAt} is null`),
         ),
+      ...setSlugs(db, type, slug, save.slugs),
       bumpContentVersion(db),
     ])
     return c.json({ ok: true })
