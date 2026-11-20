@@ -1,18 +1,13 @@
+import { contentVersion } from '@norduo/cms/server'
+
 /**
  * Edge cache for rendered pages.
- * The cache key includes a "content version" (last published change in D1),
- * so publishing in Vefstjórn makes every page re-render on its next visit –
- * no purge list to maintain.
+ * The cache key includes the content version, which goes up on every save or delete in
+ * Vefstjórn, so any change makes every page re-render on its next visit, in every
+ * data centre – no purge list to maintain.
  */
 
 const BYPASS = ['/vefstjorn', '/api/']
-
-async function contentVersion(db: D1Database): Promise<string> {
-  const row = await db
-    .prepare("select max(updated_at) as v from documents where status = 'published'")
-    .first<{ v: number | null }>()
-  return String(row?.v ?? 0)
-}
 
 export async function withPageCache(
   request: Request,

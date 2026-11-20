@@ -1,5 +1,10 @@
-import { CallButton } from '~/components/CallButton'
+import { listPublished } from '@norduo/cms/server'
+import { useTranslation } from 'react-i18next'
 
+import { CallButton } from '~/components/CallButton'
+import { cloudflare } from '~/context'
+
+import cms from '../../cms.config'
 import type { Route } from './+types/home'
 
 export function meta(_: Route.MetaArgs) {
@@ -12,7 +17,16 @@ export function meta(_: Route.MetaArgs) {
   ]
 }
 
-export default function Home() {
+export async function loader({ context }: Route.LoaderArgs) {
+  const { env } = context.get(cloudflare)
+  const equipment = await listPublished(env.DB, cms, 'equipment', {
+    fields: ['name', 'description'],
+  })
+  return { equipment }
+}
+
+export default function Home({ loaderData }: Route.ComponentProps) {
+  const { t } = useTranslation('site')
   return (
     <main className="flex flex-col gap-s p-g">
       <section className="bg-neutral-900 text-white rounded-box p-in">
@@ -20,6 +34,21 @@ export default function Home() {
         <h1 className="mt-4 text-5xl">Við mótum lóðina þína</h1>
       </section>
       <CallButton phone="691 8944" />
+      {loaderData.equipment.length > 0 && (
+        <section aria-labelledby="equipment-heading">
+          <h2 id="equipment-heading" className="text-3xl">
+            {t('equipment.heading')}
+          </h2>
+          <ul className="md:grid-cols-3 mt-s2 grid gap-grid">
+            {loaderData.equipment.map(({ slug, data }) => (
+              <li key={slug} className="bg-white rounded-card p-tp">
+                <h3 className="text-xl">{data.name}</h3>
+                {data.description && <p className="mt-2 text-neutral-600">{data.description}</p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </main>
   )
 }

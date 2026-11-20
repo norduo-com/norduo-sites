@@ -1,0 +1,10 @@
+{
+  "equipment": {
+    "heading": "Tækin okkar"
+  },
+  "errors": {
+    "notFound": "Síða fannst ekki",
+    "generic": "Eitthvað fór úrskeiðis",
+    "home": "Fara á forsíðu"
+  }
+}

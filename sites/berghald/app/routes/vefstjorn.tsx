@@ -7,6 +7,6 @@ export function meta(_: Route.MetaArgs) {
   return [{ title: 'Vefstjórn Berghalds' }, { name: 'robots', content: 'noindex' }]
 }
 
-export default function Admin() {
-  return <Vefstjorn config={cms} />
+export default function Admin({ params }: Route.ComponentProps) {
+  return <Vefstjorn config={cms} path={params['*']} />
 }

@@ -4,26 +4,41 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["build/**", "dist/**"]
+      "outputs": ["build/**", "dist/**", ".wrangler/deploy/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".dev.vars", "!**/*.md"],
+      "env": ["CLOUDFLARE_ENV"]
     },
     "typecheck": {
-      "dependsOn": ["^typecheck"]
+      "dependsOn": ["^typecheck"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
     },
-    "lint": {},
+    "lint": {
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
+    },
     "test": {
-      "outputs": ["coverage/**"]
+      "outputs": ["coverage/**"],
+      "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
     },
     "test:e2e": {
       "dependsOn": ["build"],
-      "outputs": ["playwright-report/**", "test-results/**"]
+      "outputs": ["playwright-report/**", "test-results/**"],
+      "inputs": ["$TURBO_DEFAULT$", ".dev.vars", "!**/*.md"],
+      "passThroughEnv": ["CI"]
     },
     "deploy": {
       "dependsOn": ["build"],
-      "cache": false
+      "cache": false,
+      "passThroughEnv": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]
     },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "deploy:preview": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "env": ["CLOUDFLARE_ENV"],
+      "passThroughEnv": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "PREVIEW_ALIAS"]
     }
   }
 }

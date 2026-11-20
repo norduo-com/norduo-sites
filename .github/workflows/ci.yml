@@ -9,9 +9,47 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+env:
+  # --affected compares against this. On a PR, the base commit (a bare `main` doesn't exist
+  # in the checkout, so turbo would assume everything changed); on main, the previous push.
+  TURBO_SCM_BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+  TURBO_TELEMETRY_DISABLED: 1
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          # Docs-only changes (*.md) skip lint/typecheck/test/build, e2e and deploy.
+          predicate-quantifier: every
+          filters: |
+            code:
+              - '**'
+              - '!**/*.md'
+
+  format:
+    name: Format (Prettier)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - run: pnpm format:check
+
   check:
     name: Lint, typecheck, test, build
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,14 +61,17 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # --affected compares against the PR base automatically; on main, against the previous push.
-      - if: github.event_name == 'push'
-        run: echo "TURBO_SCM_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
-      - run: pnpm format:check
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-check-${{ github.sha }}
+          restore-keys: turbo-check-
       - run: pnpm turbo run lint typecheck test build --affected
 
   e2e:
     name: End-to-end (Playwright)
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,10 +83,25 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # --affected compares against the PR base automatically; on main, against the previous push.
-      - if: github.event_name == 'push'
-        run: echo "TURBO_SCM_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
-      - run: pnpm --filter berghald exec playwright install --with-deps chromium
+      - id: playwright
+        run: echo "version=$(pnpm --filter berghald exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v4
+        id: browsers
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.browsers.outputs.cache-hit != 'true'
+        run: pnpm --filter berghald exec playwright install --with-deps chromium
+      - if: steps.browsers.outputs.cache-hit == 'true'
+        run: pnpm --filter berghald exec playwright install-deps chromium
+      # Local mode for e2e: no Access check, no page cache (the build bundles .dev.vars).
+      # .dev.vars is a turbo input, so this build never shares a cache entry with a deploy build.
+      - run: cp sites/berghald/.dev.vars.example sites/berghald/.dev.vars
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-e2e-${{ github.sha }}
+          restore-keys: turbo-e2e-
       - run: pnpm turbo run test:e2e --affected
       - uses: actions/upload-artifact@v4
         if: failure()
@@ -53,6 +109,46 @@ jobs:
           name: playwright-report
           path: sites/*/playwright-report
           retention-days: 7
+
+  preview:
+    name: Preview deploy
+    needs: changes
+    # Fork PRs get no secrets, so they get no preview.
+    if: >-
+      github.event_name == 'pull_request' && needs.changes.outputs.code == 'true' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: ${{ steps.upload.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: .turbo/cache
+          key: turbo-preview-${{ github.sha }}
+          restore-keys: turbo-preview-
+      # Builds for wrangler's "preview" env (own Worker, D1, R2), migrates its D1, and
+      # uploads a version with alias pr-<n>. Production is never touched.
+      - id: upload
+        run: |
+          set -o pipefail
+          pnpm turbo run deploy:preview --filter berghald 2>&1 | tee upload.log
+          url=$(grep -oE 'https://pr-[0-9]+-berghald-preview\.[a-z0-9-]+\.workers\.dev' upload.log | head -1)
+          if [ -z "$url" ]; then echo "::error::No preview URL in wrangler output"; exit 1; fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+          echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          CLOUDFLARE_ENV: preview
+          PREVIEW_ALIAS: pr-${{ github.event.pull_request.number }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
   deploy:
     name: Deploy changed sites
@@ -70,9 +166,12 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # --affected compares against the PR base automatically; on main, against the previous push.
-      - if: github.event_name == 'push'
-        run: echo "TURBO_SCM_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
+      # Reuses the build from the check job (same commit, no .dev.vars).
+      - uses: actions/cache/restore@v4
+        with:
+          path: .turbo/cache
+          key: turbo-check-${{ github.sha }}
+          restore-keys: turbo-check-
       # Each site's `deploy` script applies D1 migrations, then runs `wrangler deploy`.
       # A change in packages/* redeploys every site that depends on it.
       - run: pnpm turbo run deploy --affected

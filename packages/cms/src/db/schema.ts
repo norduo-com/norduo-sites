@@ -58,6 +58,15 @@ export const enquiries = sqliteTable('enquiries', {
   emailedAt: integer('emailed_at', { mode: 'timestamp_ms' }),
 })
 
+/**
+ * Small site-wide counters. `content_version` goes up on every admin write; the site's
+ * edge cache puts it in the cache key, so any save makes pages re-render on their next visit.
+ */
+export const siteMeta = sqliteTable('site_meta', {
+  key: text('key').primaryKey(),
+  value: integer('value').notNull(),
+})
+
 export type DocumentRow = typeof documents.$inferSelect
 export type MediaRow = typeof media.$inferSelect
 export type EnquiryRow = typeof enquiries.$inferSelect

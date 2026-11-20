@@ -9,12 +9,14 @@
     "preview": "vite preview",
     "postinstall": "wrangler types --strict-vars=false",
     "typecheck": "wrangler types --strict-vars=false && react-router typegen && tsc",
-    "lint": "eslint .",
+    "lint": "react-router typegen && eslint .",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "db:migrate:local": "wrangler d1 migrations apply berghald --local",
     "db:migrate:remote": "wrangler d1 migrations apply berghald --remote",
-    "deploy": "wrangler d1 migrations apply berghald --remote && wrangler deploy"
+    "deploy": "wrangler d1 migrations apply berghald --remote && wrangler deploy",
+    "db:migrate:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview",
+    "deploy:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview && wrangler versions upload --preview-alias \"$PREVIEW_ALIAS\" --message \"$PREVIEW_ALIAS\""
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.69.1",
@@ -38,9 +40,11 @@
     "@norduo/cms": "workspace:*",
     "@norduo/ui": "workspace:*",
     "hono": "^4.13.19",
+    "i18next": "27.2.2",
     "isbot": "^5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-i18next": "18.0.3",
     "react-router": "^8.5.1"
   }
 }

@@ -5,18 +5,54 @@
   "compatibility_date": "2026-11-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Only the custom domain serves the Worker; *.workers.dev and preview URLs would bypass Access.
+  // PR previews use the separate "preview" environment below.
+  "workers_dev": false,
+  "preview_urls": false,
+  "routes": [{ "pattern": "berghald.eythorkonrads.com", "custom_domain": true }],
   // Override locally in .dev.vars (see .dev.vars.example).
-  "vars": { "ENVIRONMENT": "production" },
+  "vars": {
+    "ENVIRONMENT": "production",
+    // Cloudflare Access, checked on /api/cms/admin. Not secrets: the AUD tag only names the app.
+    "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
+    "ACCESS_AUD": "bb9203f65bfe1cc17339ea4400a880c9ba18bd877b018573a7753229397950b1",
+  },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "berghald",
-      // Replace with the id from `wrangler d1 create berghald` before the first deploy.
-      "database_id": "00000000-0000-0000-0000-000000000000",
+      "database_id": "e90060dd-1cb8-4618-beed-6457439febb9",
       "migrations_dir": "../../packages/cms/migrations",
     },
   ],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
   // Nightly backup of D1 to R2 (03:00 UTC).
   "triggers": { "crons": ["0 3 * * *"] },
+  "env": {
+    // PR previews: its own Worker, D1 and R2, so a PR never touches live content.
+    // Each PR uploads a version with alias pr-<n>, served only on its preview URL
+    // (pr-<n>-berghald-preview.<subdomain>.workers.dev), all behind Cloudflare Access.
+    "preview": {
+      "name": "berghald-preview",
+      "workers_dev": false,
+      "preview_urls": true,
+      "routes": [],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
+        // AUD of the Access app over the whole preview Worker (all traffic).
+        "ACCESS_AUD": "94cccdfbe0601a1fc30271c13e2de51982572c4cbe407341c9b65d0350b3e6f7",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "berghald-preview",
+          "database_id": "2ccbfef9-0dab-4f7e-a4a4-688cb4cb766c",
+          "migrations_dir": "../../packages/cms/migrations",
+        },
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
+      "triggers": { "crons": [] },
+    },
+  },
 }

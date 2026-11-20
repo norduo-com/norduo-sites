@@ -1,0 +1,10 @@
+{
+  "equipment": {
+    "heading": "Our equipment"
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "generic": "Something went wrong",
+    "home": "Go to the home page"
+  }
+}

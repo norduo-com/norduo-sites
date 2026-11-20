@@ -1,7 +1,8 @@
 import { createCmsApi } from '@norduo/cms/server'
 import { Hono } from 'hono'
-import { createRequestHandler } from 'react-router'
+import { createRequestHandler, RouterContextProvider } from 'react-router'
 
+import { cloudflare } from '../app/context'
 import cms from '../cms.config'
 import { backupToR2 } from './backup'
 import { withPageCache } from './cache'
@@ -22,7 +23,13 @@ app.route(
 )
 
 // Public pages: rendered on request, cached at the edge until content changes.
-app.all('*', (c) => withPageCache(c.req.raw, c.env, c.executionCtx, (req) => requestHandler(req)))
+app.all('*', (c) =>
+  withPageCache(c.req.raw, c.env, c.executionCtx, (req) => {
+    const context = new RouterContextProvider()
+    context.set(cloudflare, { env: c.env, ctx: c.executionCtx })
+    return requestHandler(req, context)
+  }),
+)
 
 export default {
   fetch: app.fetch,

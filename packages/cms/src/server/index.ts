@@ -1,22 +1,25 @@
-import { and, asc, eq } from 'drizzle-orm'
+import { and, asc, eq, max, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { documents, enquiries, media } from '../db/schema'
-import type { CmsConfig } from '../define'
+import { documents, enquiries, media, siteMeta } from '../db/schema'
+import type { CmsConfig, DocOf } from '../define'
 import { schemaOf } from '../fields'
+import { verifyAccessJwt } from './access'
 
 export interface CmsBindings {
   DB: D1Database
   MEDIA: R2Bucket
   /** "production" turns on the Cloudflare Access check. */
   ENVIRONMENT?: string
+  /** Cloudflare Access team domain, e.g. "norduo.cloudflareaccess.com". */
+  ACCESS_TEAM_DOMAIN?: string
+  /** AUD tag of the site's Access application. */
+  ACCESS_AUD?: string
 }
 
 export interface CmsHooks {
-  /** Called after content is published, e.g. to clear cached pages. */
-  onPublish?: (info: { type: string; slug: string }, env: CmsBindings) => Promise<void> | void
   /** Called after a quote enquiry is saved, e.g. to email it. */
   onEnquiry?: (enquiry: EnquiryInput, env: CmsBindings) => Promise<void> | void
 }
@@ -33,10 +36,75 @@ export const enquiryInput = z.object({
 export type EnquiryInput = z.infer<typeof enquiryInput>
 
 const saveInput = z.object({
-  locale: z.string().min(2).max(10),
+  locale: z.string().min(2).max(10).optional(),
+  status: z.enum(['draft', 'published']).optional(),
   data: z.record(z.string(), z.unknown()),
   needsReview: z.boolean().optional(),
 })
+
+export interface AdminDocument {
+  slug: string
+  locale: string
+  status: 'draft' | 'published'
+  data: Record<string, unknown>
+  updatedAt: number
+}
+
+const CONTENT_VERSION = 'content_version'
+
+/** Goes up on every admin write. The site's edge cache keys pages on it. */
+export async function contentVersion(db: D1Database): Promise<number> {
+  const row = await drizzle(db)
+    .select({ value: siteMeta.value })
+    .from(siteMeta)
+    .where(eq(siteMeta.key, CONTENT_VERSION))
+    .get()
+  return row?.value ?? 0
+}
+
+function bumpContentVersion(db: ReturnType<typeof drizzle>) {
+  return db
+    .insert(siteMeta)
+    .values({ key: CONTENT_VERSION, value: 1 })
+    .onConflictDoUpdate({ target: siteMeta.key, set: { value: sql`${siteMeta.value} + 1` } })
+}
+
+/**
+ * Published items of a collection for a site loader, with only the fields the page renders.
+ * Every loaded field is serialized into the hydration payload, so selecting less saves CPU
+ * on Workers Free (see issue #8). Missing fields are left out of `data`.
+ */
+export async function listPublished<
+  C extends CmsConfig,
+  K extends keyof C['collections'] & string,
+  F extends keyof DocOf<C, K> & string,
+>(
+  db: D1Database,
+  config: C,
+  type: K,
+  options: { fields: readonly F[]; locale?: string },
+): Promise<{ slug: string; data: Partial<Pick<DocOf<C, K>, F>> }[]> {
+  const known = Object.keys(config.collections[type]?.fields ?? {})
+  // Names go into SQL, so only plain identifiers from the config are used.
+  const fields = options.fields.filter((f) => known.includes(f) && /^[A-Za-z_]\w*$/.test(f))
+  const projection = fields.length
+    ? `json_object(${fields.map((f) => `'${f}', json_extract(data, '$.${f}')`).join(', ')})`
+    : "'{}'"
+  const { results } = await db
+    .prepare(
+      `select slug, ${projection} as data from documents
+       where type = ? and locale = ? and status = 'published'
+       order by sort, created_at`,
+    )
+    .bind(type, options.locale ?? config.site.defaultLocale)
+    .all<{ slug: string; data: string }>()
+  return results.map((row) => ({
+    slug: row.slug,
+    data: Object.fromEntries(
+      Object.entries(JSON.parse(row.data) as Record<string, unknown>).filter(([, v]) => v !== null),
+    ) as Partial<Pick<DocOf<C, K>, F>>,
+  }))
+}
 
 /**
  * Hono app with the CMS API. A site mounts it, e.g. `app.route('/api/cms', createCmsApi(cms))`.
@@ -46,8 +114,20 @@ const saveInput = z.object({
 export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   const app = new Hono<{ Bindings: CmsBindings }>()
 
-  const kinds = { ...config.collections, ...config.singletons }
-  const fieldsOf = (type: string) => (Object.hasOwn(kinds, type) ? kinds[type]?.fields : undefined)
+  const collections = config.collections
+  const singletons = config.singletons ?? {}
+  const fieldsOf = (type: string) =>
+    Object.hasOwn(collections, type)
+      ? collections[type]?.fields
+      : Object.hasOwn(singletons, type)
+        ? singletons[type]?.fields
+        : undefined
+  /** Only collections with `drafts: true` can hold Drög; everything else goes live on save. */
+  const hasDrafts = (type: string) =>
+    Object.hasOwn(collections, type) && collections[type]?.drafts === true
+  const isLocale = (locale: string) => config.site.locales.includes(locale)
+  const localeOf = (c: { req: { query: (k: string) => string | undefined } }) =>
+    c.req.query('locale') ?? config.site.defaultLocale
 
   app.get('/health', (c) => c.json({ ok: true, site: config.site.id }))
 
@@ -56,9 +136,9 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   app.get('/content/:type', async (c) => {
     const type = c.req.param('type')
     if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
-    const locale = c.req.query('locale') ?? config.site.defaultLocale
+    const locale = localeOf(c)
     const rows = await drizzle(c.env.DB)
-      .select()
+      .select({ slug: documents.slug, data: documents.data })
       .from(documents)
       .where(
         and(
@@ -67,7 +147,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
           eq(documents.status, 'published'),
         ),
       )
-      .orderBy(asc(documents.sort))
+      .orderBy(asc(documents.sort), asc(documents.createdAt))
     return c.json(rows)
   })
 
@@ -84,10 +164,15 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   // ---------- admin ----------
 
   app.use('/admin/*', async (c, next) => {
-    // Cloudflare Access sits in front of /vefstjorn and /api/cms/admin.
-    // TODO: verify the JWT signature against the team's Access certs, not just its presence.
-    if (c.env.ENVIRONMENT === 'production' && !c.req.header('cf-access-jwt-assertion')) {
-      return c.json({ error: 'Unauthorized' }, 401)
+    // Cloudflare Access sits in front of /vefstjorn and /api/cms/admin; the Worker checks its
+    // signed token too, so a forged header or a request that bypasses Access gets nowhere.
+    if (c.env.ENVIRONMENT === 'production') {
+      const { ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: aud } = c.env
+      const email =
+        teamDomain && aud
+          ? await verifyAccessJwt(c.req.header('cf-access-jwt-assertion'), { teamDomain, aud })
+          : null
+      if (email === null) return c.json({ error: 'Unauthorized' }, 401)
     }
     await next()
   })
@@ -96,47 +181,151 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     c.json({
       site: config.site,
       admin: config.admin ?? {},
-      collections: Object.fromEntries(
-        Object.entries(config.collections).map(([k, v]) => [k, { label: v.label }]),
-      ),
-      singletons: Object.fromEntries(
-        Object.entries(config.singletons ?? {}).map(([k, v]) => [k, { label: v.label }]),
-      ),
+      collections: Object.keys(collections),
+      singletons: Object.keys(singletons),
     }),
   )
 
-  app.put('/admin/content/:type/:slug', async (c) => {
-    const { type, slug } = c.req.param()
-    const fields = fieldsOf(type)
-    if (!fields) return c.json({ error: 'Unknown type' }, 404)
-    const body = saveInput.safeParse(await c.req.json().catch(() => null))
-    if (!body.success) return c.json({ error: z.treeifyError(body.error) }, 400)
-    const data = schemaOf(fields).safeParse(body.data.data)
-    if (!data.success) return c.json({ error: z.treeifyError(data.error) }, 422)
+  const adminColumns = {
+    slug: documents.slug,
+    locale: documents.locale,
+    status: documents.status,
+    data: documents.data,
+    updatedAt: documents.updatedAt,
+  }
+  const toAdmin = (row: { updatedAt: Date } & Omit<AdminDocument, 'updatedAt'>): AdminDocument => ({
+    ...row,
+    updatedAt: row.updatedAt.getTime(),
+  })
 
-    const row = {
-      type,
-      slug,
-      locale: body.data.locale,
+  app.get('/admin/content/:type', async (c) => {
+    const type = c.req.param('type')
+    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
+    const locale = localeOf(c)
+    const rows = await drizzle(c.env.DB)
+      .select(adminColumns)
+      .from(documents)
+      .where(and(eq(documents.type, type), eq(documents.locale, locale)))
+      .orderBy(asc(documents.sort), asc(documents.createdAt))
+    return c.json(rows.map(toAdmin))
+  })
+
+  app.get('/admin/content/:type/:slug', async (c) => {
+    const { type, slug } = c.req.param()
+    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
+    const locale = localeOf(c)
+    const row = await drizzle(c.env.DB)
+      .select(adminColumns)
+      .from(documents)
+      .where(and(eq(documents.type, type), eq(documents.slug, slug), eq(documents.locale, locale)))
+      .get()
+    if (!row) return c.json({ error: 'Not found' }, 404)
+    return c.json(toAdmin(row))
+  })
+
+  /** Validates a save body against the type's fields, or returns an error response. */
+  async function readSave(c: { req: { json: () => Promise<unknown> } }, type: string) {
+    const fields = fieldsOf(type)
+    if (!fields) return { error: 404 as const }
+    const body = saveInput.safeParse(await c.req.json().catch(() => null))
+    if (!body.success) return { error: 400 as const, issues: z.treeifyError(body.error) }
+    const locale = body.data.locale ?? config.site.defaultLocale
+    if (!isLocale(locale)) return { error: 400 as const, issues: { errors: ['Unknown locale'] } }
+    const data = schemaOf(fields).safeParse(body.data.data)
+    if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
+    const status = hasDrafts(type) ? (body.data.status ?? 'draft') : 'published'
+    return {
+      locale,
+      status,
       data: data.data as Record<string, unknown>,
       needsReview: body.data.needsReview ?? false,
-      updatedAt: new Date(),
     }
-    await drizzle(c.env.DB)
-      .insert(documents)
-      .values({ id: crypto.randomUUID(), status: 'draft', ...row })
-      .onConflictDoUpdate({ target: [documents.type, documents.slug, documents.locale], set: row })
+  }
+
+  app.post('/admin/content/:type', async (c) => {
+    const type = c.req.param('type')
+    if (!Object.hasOwn(collections, type)) return c.json({ error: 'Unknown collection' }, 404)
+    const save = await readSave(c, type)
+    if ('error' in save) return c.json({ error: save.issues ?? 'Unknown type' }, save.error)
+
+    const db = drizzle(c.env.DB)
+    const slug = crypto.randomUUID()
+    const last = await db
+      .select({ sort: max(documents.sort) })
+      .from(documents)
+      .where(eq(documents.type, type))
+      .get()
+    const now = new Date()
+    await db.batch([
+      db.insert(documents).values({
+        id: crypto.randomUUID(),
+        type,
+        slug,
+        locale: save.locale,
+        status: save.status,
+        data: save.data,
+        needsReview: save.needsReview,
+        sort: (last?.sort ?? -1) + 1,
+        updatedAt: now,
+        publishedAt: save.status === 'published' ? now : null,
+      }),
+      bumpContentVersion(db),
+    ])
+    return c.json({ slug }, 201)
+  })
+
+  app.put('/admin/content/:type/:slug', async (c) => {
+    const { type, slug } = c.req.param()
+    const save = await readSave(c, type)
+    if ('error' in save) return c.json({ error: save.issues ?? 'Unknown type' }, save.error)
+
+    const db = drizzle(c.env.DB)
+    const isSingleton = Object.hasOwn(singletons, type)
+    const exists = await db
+      .select({ slug: documents.slug })
+      .from(documents)
+      .where(and(eq(documents.type, type), eq(documents.slug, slug)))
+      .get()
+    // Collection items are created with POST; a singleton is created on its first save.
+    if (!exists && !isSingleton) return c.json({ error: 'Not found' }, 404)
+
+    const now = new Date()
+    const row = {
+      data: save.data,
+      needsReview: save.needsReview,
+      status: save.status,
+      updatedAt: now,
+    }
+    const ofDoc = and(eq(documents.type, type), eq(documents.slug, slug))
+    await db.batch([
+      db
+        .insert(documents)
+        .values({ id: crypto.randomUUID(), type, slug, locale: save.locale, ...row })
+        .onConflictDoUpdate({
+          target: [documents.type, documents.slug, documents.locale],
+          set: row,
+        }),
+      // Drög/Birt belongs to the document, so every locale follows it.
+      db.update(documents).set({ status: save.status }).where(ofDoc),
+      db
+        .update(documents)
+        .set({ publishedAt: now })
+        .where(
+          and(ofDoc, eq(documents.status, 'published'), sql`${documents.publishedAt} is null`),
+        ),
+      bumpContentVersion(db),
+    ])
     return c.json({ ok: true })
   })
 
-  app.post('/admin/content/:type/:slug/publish', async (c) => {
+  app.delete('/admin/content/:type/:slug', async (c) => {
     const { type, slug } = c.req.param()
-    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
-    await drizzle(c.env.DB)
-      .update(documents)
-      .set({ status: 'published', publishedAt: new Date() })
-      .where(and(eq(documents.type, type), eq(documents.slug, slug)))
-    await hooks.onPublish?.({ type, slug }, c.env)
+    if (!Object.hasOwn(collections, type)) return c.json({ error: 'Unknown collection' }, 404)
+    const db = drizzle(c.env.DB)
+    await db.batch([
+      db.delete(documents).where(and(eq(documents.type, type), eq(documents.slug, slug))),
+      bumpContentVersion(db),
+    ])
     return c.json({ ok: true })
   })
 

@@ -3,7 +3,7 @@
  * D1 Time Travel already gives 30 days of point-in-time restore; this is the
  * long-term copy.
  */
-const TABLES = ['documents', 'media', 'enquiries'] as const
+const TABLES = ['documents', 'media', 'enquiries', 'site_meta'] as const
 
 export async function backupToR2(env: Env): Promise<void> {
   const dump: Record<string, unknown[]> = {}
