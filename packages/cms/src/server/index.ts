@@ -1,17 +1,23 @@
-import { and, asc, eq, max, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, max, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { documents, enquiries, media, siteMeta } from '../db/schema'
+import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
 import type { CmsConfig, DocOf } from '../define'
 import { type Fields, schemaOf } from '../fields'
+import { mediaIdsOf } from '../media'
 import { slugify, uniqueSlug } from '../slug'
 import { verifyAccessJwt } from './access'
+import { masterFromRaw, putRaw, storeBrowserMaster } from './media'
+
+export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat } from './media'
 
 export interface CmsBindings {
   DB: D1Database
   MEDIA: R2Bucket
+  /** Cloudflare Images: master conversion, blurred previews and `/img` widths. */
+  IMAGES?: ImagesBinding
   /** "production" turns on the Cloudflare Access check. */
   ENVIRONMENT?: string
   /** Cloudflare Access team domain, e.g. "norduo.cloudflareaccess.com". */
@@ -24,8 +30,6 @@ export interface CmsHooks {
   /** Called after a quote enquiry is saved, e.g. to email it. */
   onEnquiry?: (enquiry: EnquiryInput, env: CmsBindings) => Promise<void> | void
 }
-
-export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024
 
 export const enquiryInput = z.object({
   name: z.string().trim().min(1).max(200),
@@ -187,6 +191,33 @@ function setSlugs(db: Db, type: string, id: string, slugs: Record<string, string
   ]
 }
 
+/** Replaces the `media_refs` of one locale of a document. */
+function setRefs(db: Db, doc: { type: string; slug: string; locale: string }, ids: string[]) {
+  return [
+    db
+      .delete(mediaRefs)
+      .where(
+        and(
+          eq(mediaRefs.docType, doc.type),
+          eq(mediaRefs.docSlug, doc.slug),
+          eq(mediaRefs.locale, doc.locale),
+        ),
+      ),
+    ...(ids.length
+      ? [
+          db.insert(mediaRefs).values(
+            ids.map((mediaId) => ({
+              mediaId,
+              docType: doc.type,
+              docSlug: doc.slug,
+              locale: doc.locale,
+            })),
+          ),
+        ]
+      : []),
+  ]
+}
+
 /**
  * Hono app with the CMS API. A site mounts it, e.g. `app.route('/api/cms', createCmsApi(cms))`.
  * Public routes: GET published content, POST /enquiries.
@@ -320,6 +351,15 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
     const status = hasDrafts(type) ? (body.data.status ?? 'draft') : 'published'
     const values = data.data as Record<string, unknown>
+    const mediaIds = mediaIdsOf(fields, values)
+    if (mediaIds.length) {
+      const known = await drizzle(c.env.DB)
+        .select({ id: media.id })
+        .from(media)
+        .where(inArray(media.id, mediaIds))
+      if (known.length !== mediaIds.length)
+        return { error: 422 as const, issues: 'unknownMedia' as const }
+    }
     const slugs = await resolveSlugs(
       drizzle(c.env.DB),
       { type, id, locale, defaultLocale: config.site.defaultLocale },
@@ -330,6 +370,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
       locale,
       status,
       slugs,
+      mediaIds,
       data: values,
       needsReview: body.data.needsReview ?? false,
     }
@@ -362,6 +403,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
         updatedAt: now,
         publishedAt: save.status === 'published' ? now : null,
       }),
+      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
       bumpContentVersion(db),
     ])
     return c.json({ slug }, 201)
@@ -407,6 +449,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
           and(ofDoc, eq(documents.status, 'published'), sql`${documents.publishedAt} is null`),
         ),
       ...setSlugs(db, type, slug, save.slugs),
+      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
       bumpContentVersion(db),
     ])
     return c.json({ ok: true })
@@ -417,26 +460,34 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!Object.hasOwn(collections, type)) return c.json({ error: 'Unknown collection' }, 404)
     const db = drizzle(c.env.DB)
     await db.batch([
+      db.delete(mediaRefs).where(and(eq(mediaRefs.docType, type), eq(mediaRefs.docSlug, slug))),
       db.delete(documents).where(and(eq(documents.type, type), eq(documents.slug, slug))),
       bumpContentVersion(db),
     ])
     return c.json({ ok: true })
   })
 
+  // Photos, one per request: the browser makes the master when it can (see admin/upload.ts).
   app.post('/admin/media', async (c) => {
-    const form = await c.req.formData()
-    const file = form.get('file')
-    if (!(file instanceof File)) return c.json({ error: 'No file' }, 400)
-    if (file.size > MAX_UPLOAD_BYTES) return c.json({ error: 'File is larger than 100 MB' }, 413)
-    if (!file.type.startsWith('image/')) return c.json({ error: 'Only images' }, 415)
+    const form = await c.req.formData().catch(() => null)
+    const file = form?.get('file')
+    if (!(file instanceof File)) return c.json({ error: 'noFile' }, 400)
+    const result = await storeBrowserMaster(c.env, file)
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result, 201)
+  })
 
-    const id = crypto.randomUUID()
-    const key = `originals/${id}/${file.name}`
-    await c.env.MEDIA.put(key, file.stream(), { httpMetadata: { contentType: file.type } })
-    await drizzle(c.env.DB)
-      .insert(media)
-      .values({ id, key, filename: file.name, mime: file.type, size: file.size })
-    return c.json({ id, key }, 201)
+  // A HEIC the browser can't decode: the raw file first, then the master in its own request.
+  app.post('/admin/media/raw', async (c) => {
+    const result = await putRaw(c.env, c.req.raw, c.req.query('filename') ?? 'photo.heic')
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result, 201)
+  })
+
+  app.post('/admin/media/raw/:id', async (c) => {
+    const result = await masterFromRaw(c.env, c.req.param('id'))
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result.media, result.created ? 201 : 200)
   })
 
   return app

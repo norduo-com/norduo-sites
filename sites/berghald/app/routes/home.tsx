@@ -1,7 +1,8 @@
-import { listPublished } from '@norduo/cms/server'
+import { listPublished, mediaByIds } from '@norduo/cms/server'
 import { useTranslation } from 'react-i18next'
 
 import { CallButton } from '~/components/CallButton'
+import { Photo } from '~/components/Photo'
 import { cloudflare } from '~/context'
 
 import cms from '../../cms.config'
@@ -19,9 +20,18 @@ export function meta(_: Route.MetaArgs) {
 
 export async function loader({ context }: Route.LoaderArgs) {
   const { env } = context.get(cloudflare)
-  const equipment = await listPublished(env.DB, cms, 'equipment', {
-    fields: ['name', 'description'],
+  const items = await listPublished(env.DB, cms, 'equipment', {
+    fields: ['name', 'description', 'photo'],
   })
+  const media = await mediaByIds(
+    env.DB,
+    items.flatMap((i) => (i.data.photo ? [i.data.photo.mediaId] : [])),
+  )
+  const equipment = items.map(({ slug, data: { photo, ...data } }) => ({
+    slug,
+    data,
+    photo: photo ? (media.get(photo.mediaId) ?? null) : null,
+  }))
   return { equipment }
 }
 
@@ -40,8 +50,15 @@ export default function Home({ loaderData }: Route.ComponentProps) {
             {t('equipment.heading')}
           </h2>
           <ul className="md:grid-cols-3 mt-s2 grid gap-grid">
-            {loaderData.equipment.map(({ slug, data }) => (
-              <li key={slug} className="bg-white rounded-card p-tp">
+            {loaderData.equipment.map(({ slug, data, photo }) => (
+              <li key={slug} className="bg-white rounded-card p-cp">
+                {photo && (
+                  <Photo
+                    media={photo}
+                    sizes="(min-width: 768px) 33vw, 100vw"
+                    className="mb-4 aspect-[4/3] w-full rounded-img object-cover"
+                  />
+                )}
                 <h3 className="text-xl">{data.name}</h3>
                 {data.description && <p className="mt-2 text-neutral-600">{data.description}</p>}
               </li>

@@ -5,6 +5,7 @@ import type { Field, Fields } from '../fields'
 import { choiceLabelKeys, fieldHelpKeys, fieldLabelKeys } from '../labels'
 import type { AdminDocument } from '../server'
 import { useAdmin } from './context'
+import { ImageInput } from './ImageInput'
 import { RichTextInput } from './RichTextInput'
 
 /** Field errors keyed by value path (`cta.heading`), as `vefstjorn` keys with options. */
@@ -49,6 +50,7 @@ const SUPPORTED = new Set([
   'slug',
   'group',
   'richText',
+  'image',
 ])
 
 export interface FieldInputProps {
@@ -323,6 +325,18 @@ export function FieldInput(props: FieldInputProps) {
           />
         ))}
       </div>,
+    )
+  }
+
+  if (field.kind === 'image') {
+    return labelled(
+      <ImageInput
+        id={id}
+        describedBy={describedBy || undefined}
+        invalid={Boolean(error)}
+        value={value}
+        onChange={onChange}
+      />,
     )
   }
 

@@ -87,5 +87,17 @@
     "unlink": "Fjarlægja tengil",
     "linkUrl": "Slóð",
     "applyLink": "Setja inn"
+  },
+  "image": {
+    "choose": "Velja mynd",
+    "replace": "Skipta um mynd",
+    "remove": "Fjarlægja mynd",
+    "uploading": "Hleður upp mynd…",
+    "preview": "Valin mynd",
+    "errors": {
+      "tooBig": "Vafrinn getur ekki lesið þessa mynd og hún er stærri en 20 MB. Vistaðu hana sem JPEG og reyndu aftur.",
+      "unsupported": "Ekki tókst að lesa myndina. Notaðu JPG, PNG, HEIC eða WebP.",
+      "failed": "Ekki tókst að hlaða myndinni upp. Reyndu aftur."
+    }
   }
 }

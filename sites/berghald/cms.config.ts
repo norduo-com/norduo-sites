@@ -75,10 +75,10 @@ export default defineCms({
       titleField: 'name',
       sortable: true,
       drafts: true,
-      // The photo comes with image upload (#27).
       fields: {
         name: text({ required: true, i18n: true }),
         description: text({ i18n: true, max: 120, multiline: true }),
+        photo: image(),
       },
     },
     pages: {

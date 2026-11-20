@@ -26,6 +26,8 @@
     },
   ],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
+  // Photo widths, blurred previews and JPEG → WebP masters. Local dev uses Sharp.
+  "images": { "binding": "IMAGES" },
   // Nightly backup of D1 to R2 (03:00 UTC).
   "triggers": { "crons": ["0 3 * * *"] },
   "env": {
@@ -52,6 +54,7 @@
         },
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
+      "images": { "binding": "IMAGES" },
       "triggers": { "crons": [] },
     },
   },

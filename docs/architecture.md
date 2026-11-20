@@ -79,9 +79,12 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 ## 5. Images & uploads
 
-- **Upload limit:**
-  - Images: up to 100 MB each, through the Worker (the Free plan's request body limit is 100 MB).
-  - Larger files such as videos (up to 500 MB) are uploaded straight to R2 with a presigned URL.
+- **Photo upload** (`packages/cms/src/admin/upload.ts`, `src/server/media.ts`), one file at a time, retried on a 503:
+  - The browser decodes the photo, shrinks it to a master (≤ 2560 px) and re-encodes it as WebP q 0.9, or JPEG q 0.92 where it can't encode WebP; the Worker then converts that JPEG to WebP. The Worker refuses a master over 2560 px or one that still carries EXIF/XMP.
+  - A HEIC the browser can't decode (≤ 20 MB) goes to `tmp/<id>` as it is; a second request makes its master (drawn onto a blank base, which drops EXIF) and deletes `tmp/<id>`. An R2 lifecycle rule deletes anything under `tmp/` after 1 day. Larger ones are refused.
+  - The blurred preview (32 px WebP) and the master's width and height are stored in `media` at upload. `media_refs` (document, locale → photo) is rewritten on every save.
+  - `/img/<480|960|1440|1920>/<id>` serves the widths from the master through the Images binding, AVIF ≤ 1200 px, else WebP or JPEG by `Accept`, cached with the Cache API. Other widths are 404.
+- Larger files such as videos (up to 500 MB) are uploaded straight to R2 with a presigned URL.
 - **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
 - **Myndasafn (media library):** all images in one place, with filters (by where they're used, unused, without alt text), search, upload, and "Velja úr myndasafni" (pick from library) in the project editor.
@@ -176,4 +179,4 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. In production a missing setting fails closed (401).
 - Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
 - `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
-- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except image, gallery, repeater and blocks. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
+- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except gallery, repeater and blocks. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
