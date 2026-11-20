@@ -12,3 +12,6 @@ test-results/
 .react-router/
 .wrangler/
 worker-configuration.d.ts
+
+# Claude Code agent worktrees
+.claude/worktrees/
