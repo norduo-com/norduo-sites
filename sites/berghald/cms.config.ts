@@ -2,13 +2,18 @@ import {
   block,
   blocks,
   defineCms,
+  email,
   gallery,
   image,
+  monthRange,
   relation,
   repeater,
   richText,
+  slug,
+  tel,
   text,
   toggle,
+  year,
 } from '@norduo/cms'
 
 /**
@@ -37,10 +42,12 @@ export default defineCms({
         title: text({ required: true, i18n: true, max: 80 }),
         summary: text({ i18n: true, max: 200, multiline: true }),
         body: richText({ i18n: true }),
-        service: relation('services'),
+        services: relation('services', { many: true }),
         photos: gallery(),
-        year: text(),
+        workPeriod: monthRange(),
+        year: year(),
         showOnHome: toggle(),
+        slug: slug({ from: 'title' }),
       },
     },
     services: {
@@ -60,7 +67,7 @@ export default defineCms({
       fields: {
         name: text({ required: true }),
         role: text({ i18n: true }),
-        phone: text(),
+        phone: tel(),
         photo: image(),
       },
     },
@@ -110,8 +117,8 @@ export default defineCms({
       fields: {
         company: text({ required: true }),
         kennitala: text(),
-        phone: text({ required: true }),
-        email: text({ required: true }),
+        phone: tel({ required: true }),
+        email: email({ required: true }),
         enquiriesTo: text(),
         responseTime: text({ i18n: true }),
       },

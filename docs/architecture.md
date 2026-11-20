@@ -31,7 +31,9 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 1. **`packages/cms` (generic):**
    - admin shell, login, list and edit screens, Myndasafn (media library)
    - photo upload to R2, saving to D1, Hono routes
-   - field types: text, rich text, toggle, image, gallery, select, relation, repeater, blocks
+   - field types: text, rich text, toggle, image, gallery, select, multi-select, relation (one or many), slug, month range, year, URL, email, phone, group, repeater, blocks
+   - rich text is stored as a small JSON tree (paragraphs, headings, lists; bold, italic, links and the site's own marks), not HTML, so the Worker never sanitizes markup; `richTextToHtml` escapes it on output
+   - a `slug()` is made from its `from` field while a draft and locked on first publish; the server owns it and editors can't type it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
    - collections (e.g. Verkefni, Þjónusta)
    - singletons (e.g. settings)
@@ -174,4 +176,4 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. In production a missing setting fails closed (401).
 - Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
 - `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
-- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons, with text fields only. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
+- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except image, gallery, repeater and blocks. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.

@@ -38,9 +38,54 @@
     "loadFailed": "Ekki tókst að sækja gögn. Reyndu aftur.",
     "saveFailed": "Ekki tókst að vista. Reyndu aftur.",
     "deleteFailed": "Ekki tókst að eyða. Reyndu aftur.",
-    "unauthorized": "Innskráning rann út. Endurhlaðið síðunni til að skrá þig inn aftur."
+    "unauthorized": "Innskráning rann út. Endurhlaðið síðunni til að skrá þig inn aftur.",
+    "tooFew": "Veldu að minnsta kosti {{min}}.",
+    "email": "Sláðu inn gilt netfang, t.d. nafn@fyrirtaeki.is.",
+    "url": "Sláðu inn fulla slóð sem byrjar á https://."
   },
   "screens": {
     "comingSoon": "Þessi skjár kemur síðar."
+  },
+  "select": {
+    "none": "— Ekkert valið —"
+  },
+  "relation": {
+    "empty": "Ekkert til að velja enn."
+  },
+  "monthRange": {
+    "from": "Frá",
+    "to": "Til"
+  },
+  "months": {
+    "1": "janúar",
+    "2": "febrúar",
+    "3": "mars",
+    "4": "apríl",
+    "5": "maí",
+    "6": "júní",
+    "7": "júlí",
+    "8": "ágúst",
+    "9": "september",
+    "10": "október",
+    "11": "nóvember",
+    "12": "desember"
+  },
+  "slug": {
+    "pending": "Verður til þegar vistað er.",
+    "help": "Myndast úr reitnum „{{from}}“ meðan atriðið er í drögum. Breytist ekki eftir að það er birt."
+  },
+  "richText": {
+    "toolbar": "Sníða texta",
+    "paragraph": "Texti",
+    "h2": "Fyrirsögn",
+    "h3": "Millifyrirsögn",
+    "ul": "Punktalisti",
+    "ol": "Númeraður listi",
+    "bold": "Feitletrað",
+    "italic": "Skáletrað",
+    "link": "Tengill",
+    "unlink": "Fjarlægja tengil",
+    "linkUrl": "Slóð",
+    "applyLink": "Setja inn"
   }
 }

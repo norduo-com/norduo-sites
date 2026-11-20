@@ -1,3 +1,5 @@
 export * from './define'
 export * from './fields'
 export * from './labels'
+export * from './richtext'
+export * from './slug'

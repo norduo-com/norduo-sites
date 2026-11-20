@@ -5,6 +5,7 @@ import type { CmsConfig, SingletonConfig } from '../define'
 import { collectionLabelKey, singletonLabelKey } from '../labels'
 import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
+import { AdminContext } from './context'
 import { Editor, type EditorDoc } from './Editor'
 
 /** Built-in screens that aren't a collection or singleton. */
@@ -29,6 +30,7 @@ export function Vefstjorn({
 }) {
   const { t } = useTranslation(['vefstjorn', 'cms'])
   const api = useMemo(() => adminApi(apiBase), [apiBase])
+  const admin = useMemo(() => ({ api, config }), [api, config])
   const singletons = config.singletons ?? {}
   const screen = path.split('/')[0] ?? ''
 
@@ -49,43 +51,45 @@ export function Vefstjorn({
   const singleton = Object.hasOwn(singletons, screen) ? singletons[screen] : undefined
 
   return (
-    <div className="md:flex-row flex min-h-screen flex-col">
-      <nav
-        aria-label={t('nav.label')}
-        className="gap-1 bg-neutral-900 p-4 text-white md:w-64 flex flex-col"
-      >
-        <a href={base} className="mb-4 text-sm tracking-widest uppercase">
-          {config.admin?.title ?? t('title')}
-        </a>
-        {menu.map((id) => (
-          <a
-            key={id}
-            href={`${base}/${id}`}
-            aria-current={screen === id ? 'page' : undefined}
-            className="rounded-lg px-3 py-2 hover:bg-white/10 aria-[current=page]:bg-white/15"
-          >
-            {labelOf(id)}
+    <AdminContext.Provider value={admin}>
+      <div className="md:flex-row flex min-h-screen flex-col">
+        <nav
+          aria-label={t('nav.label')}
+          className="gap-1 bg-neutral-900 p-4 text-white md:w-64 flex flex-col"
+        >
+          <a href={base} className="mb-4 text-sm tracking-widest uppercase">
+            {config.admin?.title ?? t('title')}
           </a>
-        ))}
-      </nav>
-      <main className="flex-1 p-g">
-        {collection ? (
-          <CollectionScreen key={screen} api={api} name={screen} collection={collection} />
-        ) : singleton ? (
-          <SingletonScreen key={screen} api={api} name={screen} singleton={singleton} />
-        ) : screen ? (
-          <>
-            <h1 className="text-2xl">{labelOf(screen)}</h1>
-            <p className="mt-2 text-neutral-500">{t('screens.comingSoon')}</p>
-          </>
-        ) : (
-          <>
-            <h1 className="text-3xl">{t('nav.overview')}</h1>
-            <p className="mt-2 text-neutral-500">{config.site.name}</p>
-          </>
-        )}
-      </main>
-    </div>
+          {menu.map((id) => (
+            <a
+              key={id}
+              href={`${base}/${id}`}
+              aria-current={screen === id ? 'page' : undefined}
+              className="rounded-lg px-3 py-2 hover:bg-white/10 aria-[current=page]:bg-white/15"
+            >
+              {labelOf(id)}
+            </a>
+          ))}
+        </nav>
+        <main className="flex-1 p-g">
+          {collection ? (
+            <CollectionScreen key={screen} api={api} name={screen} collection={collection} />
+          ) : singleton ? (
+            <SingletonScreen key={screen} api={api} name={screen} singleton={singleton} />
+          ) : screen ? (
+            <>
+              <h1 className="text-2xl">{labelOf(screen)}</h1>
+              <p className="mt-2 text-neutral-500">{t('screens.comingSoon')}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-3xl">{t('nav.overview')}</h1>
+              <p className="mt-2 text-neutral-500">{config.site.name}</p>
+            </>
+          )}
+        </main>
+      </div>
+    </AdminContext.Provider>
   )
 }
 

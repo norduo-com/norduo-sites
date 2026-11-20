@@ -25,8 +25,14 @@ export function choiceLabelKeys(owner: string, field: string, choice: string): s
   return [`${owner}.fields.${field}.choices.${choice}`, `fields.${field}.choices.${choice}`]
 }
 
+/** A rich text field's site mark: under the field first, then site-wide `marks.<m>`. */
+export function markLabelKeys(owner: string, field: string, mark: string): string[] {
+  return [`${owner}.fields.${field}.marks.${mark}`, `marks.${mark}`]
+}
+
 type Nested = Field & {
   choices?: readonly string[]
+  marks?: Record<string, string>
   fields?: Fields
   blocks?: Record<string, BlockConfig>
 }
@@ -45,6 +51,7 @@ export function requiredLabels(config: CmsConfig): string[][] {
       const field = raw as Nested
       out.push(fieldLabelKeys(owner, name))
       for (const choice of field.choices ?? []) out.push(choiceLabelKeys(owner, name, choice))
+      for (const mark of Object.keys(field.marks ?? {})) out.push(markLabelKeys(owner, name, mark))
       if (field.fields) walkFields(`${owner}.fields.${name}`, field.fields)
       for (const [b, def] of Object.entries(field.blocks ?? {})) walkBlock(b, def)
     }
