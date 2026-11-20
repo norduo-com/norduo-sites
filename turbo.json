@@ -4,7 +4,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["build/**", "dist/**"],
+      "outputs": ["build/**", "dist/**", ".wrangler/deploy/**"],
       "inputs": ["$TURBO_DEFAULT$", ".dev.vars", "!**/*.md"],
       "env": ["CLOUDFLARE_ENV"]
     },
