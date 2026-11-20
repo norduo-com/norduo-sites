@@ -14,7 +14,9 @@
     "test:e2e": "playwright test",
     "db:migrate:local": "wrangler d1 migrations apply berghald --local",
     "db:migrate:remote": "wrangler d1 migrations apply berghald --remote",
-    "deploy": "wrangler d1 migrations apply berghald --remote && wrangler deploy"
+    "deploy": "wrangler d1 migrations apply berghald --remote && wrangler deploy",
+    "db:migrate:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview",
+    "deploy:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview && wrangler versions upload --preview-alias \"$PREVIEW_ALIAS\" --message \"$PREVIEW_ALIAS\""
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.69.1",

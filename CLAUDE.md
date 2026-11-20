@@ -34,6 +34,7 @@ pnpm check                              # lint + typecheck + unit tests, all pac
 pnpm --filter berghald dev              # site at :5173, admin at /vefstjorn
 pnpm --filter berghald test:e2e         # Playwright
 pnpm --filter berghald db:migrate:local
+pnpm --filter berghald db:migrate:preview # the PR-preview D1 (CI also runs it)
 pnpm --filter @norduo/cms db:generate   # after editing src/db/schema.ts
 ```
 

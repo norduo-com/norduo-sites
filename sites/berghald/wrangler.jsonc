@@ -6,6 +6,7 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
   // Only the custom domain serves the Worker; *.workers.dev and preview URLs would bypass Access.
+  // PR previews use the separate "preview" environment below.
   "workers_dev": false,
   "preview_urls": false,
   "routes": [{ "pattern": "berghald.eythorkonrads.com", "custom_domain": true }],
@@ -27,4 +28,31 @@
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
   // Nightly backup of D1 to R2 (03:00 UTC).
   "triggers": { "crons": ["0 3 * * *"] },
+  "env": {
+    // PR previews: its own Worker, D1 and R2, so a PR never touches live content.
+    // Each PR uploads a version with alias pr-<n>, served only on its preview URL
+    // (pr-<n>-berghald-preview.<subdomain>.workers.dev), all behind Cloudflare Access.
+    "preview": {
+      "name": "berghald-preview",
+      "workers_dev": false,
+      "preview_urls": true,
+      "routes": [],
+      "vars": {
+        "ENVIRONMENT": "production",
+        "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
+        // AUD of the Access app over the preview URLs. Empty = admin API refuses every request.
+        "ACCESS_AUD": "",
+      },
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "berghald-preview",
+          "database_id": "2ccbfef9-0dab-4f7e-a4a4-688cb4cb766c",
+          "migrations_dir": "../../packages/cms/migrations",
+        },
+      ],
+      "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
+      "triggers": { "crons": [] },
+    },
+  },
 }

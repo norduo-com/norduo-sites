@@ -118,7 +118,8 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 ## 8. Environments, secrets & backups
 
-- **Environments:** local development (`wrangler`/Vite dev with local D1/R2) plus production. No staging.
+- **Environments:** local development (`wrangler`/Vite dev with local D1/R2), PR previews and production. No staging.
+- **PR previews:** every PR from this repo uploads a version of a separate `berghald-preview` Worker (wrangler env `preview`) with its own D1 (`berghald-preview`) and R2 (`berghald-preview-media`), so a PR never touches live content. It is served only at `pr-<n>-berghald-preview.<subdomain>.workers.dev`, behind Cloudflare Access (the whole preview, not just the admin), and linked from the PR as the `preview` deployment. The preview D1 starts empty and is migrated on each upload. Fork PRs get no preview.
 - **Secrets:** GitHub Actions secrets for CI/deploy (Cloudflare API token and account ID, in the `production` environment), and `wrangler secret` for runtime secrets (Sentry DSN, Turnstile secret, etc.). Nothing secret is committed; this is a public repo.
 - **Backups:**
   - D1 Time Travel gives 30 days of point-in-time restore.
@@ -142,6 +143,8 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 10. CI – GitHub Actions
 
 - Turborepo's `--affected` means only the changed parts get linted, tested and built.
+- Changes to `*.md` files only run the Prettier check: lint, typecheck, test, build, e2e, preview and deploy are skipped.
+- The pnpm store, the Turborepo cache and Playwright's Chromium are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
 - A change in `sites/berghald` runs only Berghald's tests.
 - A change in `packages/cms` (or `ui`/`config`) runs the CMS tests and the tests of every site that depends on it.
 - Deploys go per site via Wrangler on push to `main` (`turbo run deploy --affected`).
