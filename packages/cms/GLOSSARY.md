@@ -32,6 +32,10 @@ _Avoid_: Live, active
 Every image and video uploaded to a site, in one place, with where each is used. An image filling a single image field can't be deleted until it's replaced there; one in a gallery is removed from it.
 _Avoid_: Assets, uploads, gallery
 
+**Master image**:
+The one stored copy of an uploaded image: shrunk, cleaned of location and camera data, and the source of every size the site shows. The photo as it came off the phone is not kept.
+_Avoid_: Original, source file
+
 **Overview** (UI: _Yfirlit_):
 Vefstjórn's start screen: recently edited documents, published and draft counts, and the site's shortcuts.
 _Avoid_: Dashboard, home

@@ -35,3 +35,7 @@ _Avoid_: 3D hero, animation, hero image
 **Home-page project** (UI: _Sýna á forsíðu_):
 A published project chosen for "Nýleg verkefni" on the home page. Only the first four in order are shown.
 _Avoid_: Featured project
+
+**Kennitala** (UI: _Kennitala_):
+Berghald's Icelandic company registration number, shown in the footer and on the privacy policy. Kept in Icelandic, also in code: English has no exact equivalent.
+_Avoid_: National ID, company ID, SSN
