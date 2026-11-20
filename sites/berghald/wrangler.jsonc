@@ -40,8 +40,8 @@
       "vars": {
         "ENVIRONMENT": "production",
         "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
-        // AUD of the Access app over the preview URLs. Empty = admin API refuses every request.
-        "ACCESS_AUD": "",
+        // AUD of the Access app over the whole preview Worker (all traffic).
+        "ACCESS_AUD": "94cccdfbe0601a1fc30271c13e2de51982572c4cbe407341c9b65d0350b3e6f7",
       },
       "d1_databases": [
         {
