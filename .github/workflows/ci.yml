@@ -138,8 +138,10 @@ jobs:
       # uploads a version with alias pr-<n>. Production is never touched.
       - id: upload
         run: |
+          set -o pipefail
           pnpm turbo run deploy:preview --filter berghald 2>&1 | tee upload.log
           url=$(grep -oE 'https://pr-[0-9]+-berghald-preview\.[a-z0-9-]+\.workers\.dev' upload.log | head -1)
+          if [ -z "$url" ]; then echo "::error::No preview URL in wrangler output"; exit 1; fi
           echo "url=$url" >> "$GITHUB_OUTPUT"
           echo "Preview: $url" >> "$GITHUB_STEP_SUMMARY"
         env:
