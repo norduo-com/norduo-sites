@@ -41,9 +41,14 @@ Run `pnpm check` before calling work done. CI runs lint, typecheck, test and bui
 
 ## Stack
 
-TypeScript 6 (pinned: typescript-eslint doesn't support 7 yet), React 19, React Router 8, Vite 8, Tailwind 4, Hono, Zod 4, Drizzle (D1), Vitest, Playwright, ESLint 9 (strict type-checked) and Prettier.
+TypeScript 6 (pinned: typescript-eslint doesn't support 7 yet), React 19, React Router 8, Vite 8, Tailwind 4, Hono, Zod 4, Drizzle (D1), react-i18next, Vitest (with Miniflare for D1 tests), Playwright, ESLint 9 (strict type-checked) and Prettier.
 
-These are planned but not installed yet; add each with the feature that needs it: TanStack Query, React Hook Form, react-i18next, React Three Fiber, Motion, Lenis, Sentry, Turnstile.
+These are planned but not installed yet; add each with the feature that needs it: TanStack Query, React Hook Form, React Three Fiber, Motion, Lenis, Sentry, Turnstile.
+
+## Labels
+
+- Don't add user-facing text inline in components or `cms.config.ts` (older inline strings move to files as their screens are rebuilt). Strings come from react-i18next namespaces: `vefstjorn` (`packages/cms/src/admin/locales`), `cms` and `site` (`sites/<name>/locales`).
+- `cms` keys follow config paths, e.g. `collections.equipment.label`, then site-wide `fields.<f>.label`. `pnpm check` fails on a missing `is` label or on `site` keys that differ between `is` and `en`.
 
 ## Agent skills
 

@@ -6,11 +6,8 @@ import { z } from 'zod'
  * Zod schemas from them, so it never needs to know about a site's pages.
  */
 
+/** Labels and help text come from the site's `cms` translations, not from here. */
 export interface FieldOptions<R extends boolean | undefined = undefined> {
-  /** Label shown in Vefstjórn. */
-  label?: string
-  /** Help text under the field. */
-  help?: string
   /** Fields are optional unless `required: true`. */
   required?: R
   /** Translatable: stored per locale, gets the "Þýða á ensku" button. */
@@ -20,8 +17,6 @@ export interface FieldOptions<R extends boolean | undefined = undefined> {
 export interface Field<K extends string = string, S extends z.ZodType = z.ZodType> {
   kind: K
   schema: S
-  label?: string
-  help?: string
   required: boolean
   i18n: boolean
 }
@@ -39,8 +34,6 @@ function make<K extends string, S extends z.ZodType, R extends boolean | undefin
   return {
     kind,
     schema: (required ? schema : schema.optional()) as MaybeOptional<S, R>,
-    label: options.label,
-    help: options.help,
     required,
     i18n: options.i18n ?? false,
   }
@@ -72,6 +65,7 @@ export function text<R extends boolean | undefined = undefined>(
   return {
     ...make('text', options.max ? base.max(options.max) : base, options),
     multiline: options.multiline ?? false,
+    max: options.max,
   }
 }
 
@@ -116,12 +110,11 @@ export function repeater<F extends Fields, R extends boolean | undefined = undef
 // ---------- blocks (page builder) ----------
 
 export interface BlockConfig<F extends Fields = Fields> {
-  label: string
   fields: F
 }
 
-export function block<F extends Fields>(label: string, fields: F): BlockConfig<F> {
-  return { label, fields }
+export function block<F extends Fields>(fields: F): BlockConfig<F> {
+  return { fields }
 }
 
 export type BlockValue<B extends Record<string, BlockConfig>> = {

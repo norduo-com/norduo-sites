@@ -13,8 +13,10 @@ export default defineConfig({
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
   ],
+  // The build must contain .dev.vars (ENVIRONMENT=development): it turns off the Access
+  // check and the page cache. CI copies .dev.vars.example before building.
   webServer: {
-    command: `pnpm preview --port ${port} --strictPort`,
+    command: `pnpm db:migrate:local && pnpm preview --port ${port} --strictPort`,
     port,
     reuseExistingServer: !process.env.CI,
   },

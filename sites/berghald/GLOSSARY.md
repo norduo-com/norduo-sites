@@ -32,6 +32,10 @@ _Avoid_: Testimonial
 The 3D animation at the top of the home page: the crane truck backs into a garden, builds a stone wall and drives away. Where it can't play, a still frame of its final moment, the **hero poster**, is shown instead.
 _Avoid_: 3D hero, animation, hero image
 
+**Equipment** (UI: _Tæki_):
+A machine Berghald works with, such as the crane truck, shown on the site with a short description.
+_Avoid_: Machinery, tools, fleet
+
 **Home-page project** (UI: _Sýna á forsíðu_):
 A published project chosen for "Nýleg verkefni" on the home page. Only the first four in order are shown.
 _Avoid_: Featured project

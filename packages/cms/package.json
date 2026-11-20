@@ -27,12 +27,17 @@
     "@types/react": "^19.3.0",
     "drizzle-kit": "^0.31.11",
     "eslint": "^9.39.5",
+    "i18next": "27.2.2",
+    "miniflare": "5.20261116.0-beta",
     "react": "^19.3.1",
+    "react-i18next": "18.0.3",
     "typescript": "~6.0.3",
     "vite": "^8.3.8",
     "vitest": "^5.1.0"
   },
   "peerDependencies": {
-    "react": "^19.3.1"
+    "react": "^19.3.1",
+    "i18next": "27.2.2",
+    "react-i18next": "18.0.3"
   }
 }

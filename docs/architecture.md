@@ -54,7 +54,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 ## 3. Rendering & publishing
 
 - The public site is **rendered by the Worker on request** (React Router framework mode, SSR) and **cached at the edge**.
-- The cache key includes the last published change in D1, so publishing in Vefstjórn makes pages re-render on their next visit. No rebuild or purge list is needed.
+- The cache key includes a content version in D1 (`site_meta.content_version`), which goes up on every save or delete in Vefstjórn, drafts included. Any change makes pages re-render on their next visit, in every data centre. No rebuild or purge list is needed.
 - Watch out: the Workers free plan allows 10 ms CPU per request. Because of the cache, most visits never render, but if uncached renders go over that limit, the fix is Workers Paid at $5/month (30 s CPU).
 - The Vefstjórn UI is served from the same Worker at `/vefstjorn`.
 
@@ -89,6 +89,13 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 6. Languages
 
 - **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
+- **Namespaces:**
+  - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
+  - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).
+  - `site`: the public site's fixed strings, in `sites/<name>/locales/<lng>/site.json`, `is` and `en`, written by hand.
+  - The admin loads `vefstjorn` + `cms`, Icelandic only in v1.
+- JSON is bundled statically and i18next starts synchronously, also on SSR. A missing key renders as the raw key and never crashes; a unit test fails `pnpm check` on a missing `is` label and on `site` key sets that differ between `is` and `en`.
+- **Files vs D1:** text an editor would plausibly reword lives in D1 (page headers, block text, nav labels, settings). Microcopy tied to code lives in files (form labels and errors, buttons, aria labels, the language switch, the cookie banner, season and month names).
 - **English content = machine draft, then edited:**
   - Each translatable field in Vefstjórn has a "Þýða á ensku" (translate to English) button. It calls Workers AI through the Hono API and fills in the English field.
   - A machine-translated field is flagged "Óyfirfarið" (not reviewed, `needs_review` in D1) until someone edits or approves it.
@@ -161,6 +168,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 ## 13. Known gaps in the scaffold
 
-- The admin API only checks that the Cloudflare Access header is present. Verify the JWT signature before launch.
-- `wrangler.jsonc` has a placeholder D1 `database_id` until `wrangler d1 create berghald` is run.
-- The Vefstjórn UI is a placeholder; the screens live in the prototype (Berghald.is — prufuvefur) and still need porting.
+- Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. In production a missing setting fails closed (401).
+- Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
+- `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
+- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons, with text fields only. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.

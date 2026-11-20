@@ -46,6 +46,8 @@ jobs:
       - if: github.event_name == 'push'
         run: echo "TURBO_SCM_BASE=${{ github.event.before }}" >> "$GITHUB_ENV"
       - run: pnpm --filter berghald exec playwright install --with-deps chromium
+      # Local mode for e2e: no Access check, no page cache (the build bundles .dev.vars).
+      - run: cp sites/berghald/.dev.vars.example sites/berghald/.dev.vars
       - run: pnpm turbo run test:e2e --affected
       - uses: actions/upload-artifact@v4
         if: failure()

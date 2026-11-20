@@ -13,7 +13,6 @@ const cms = defineCms({
   },
   collections: {
     projects: {
-      label: 'Verkefni',
       fields: {
         title: text({ required: true, i18n: true }),
         status: select(['draft', 'done'] as const),
@@ -21,12 +20,11 @@ const cms = defineCms({
       },
     },
     pages: {
-      label: 'Síður',
       fields: {
         title: text({ required: true }),
         body: blocks({
-          hero: block('Hero', { heading: text({ required: true }) }),
-          quote: block('Tilboðsform', { intro: text() }),
+          hero: block({ heading: text({ required: true }) }),
+          quote: block({ intro: text() }),
         }),
       },
     },

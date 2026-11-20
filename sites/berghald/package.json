@@ -38,9 +38,11 @@
     "@norduo/cms": "workspace:*",
     "@norduo/ui": "workspace:*",
     "hono": "^4.13.19",
+    "i18next": "27.2.2",
     "isbot": "^5",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "react-i18next": "18.0.3",
     "react-router": "^8.5.1"
   }
 }

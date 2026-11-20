@@ -14,6 +14,7 @@ import {
 /**
  * Berghald's content model. Vefstjórn builds its screens from this file;
  * the site's own components decide how each block looks.
+ * Labels live in `locales/is/cms.json`, keyed by config path.
  */
 export default defineCms({
   site: {
@@ -30,77 +31,73 @@ export default defineCms({
   },
   collections: {
     projects: {
-      label: 'Verkefni',
       titleField: 'title',
       sortable: true,
       fields: {
-        title: text({ label: 'Heiti', required: true, i18n: true, max: 80 }),
-        summary: text({ label: 'Stutt lýsing', i18n: true, max: 200, multiline: true }),
-        body: richText({ label: 'Texti', i18n: true }),
-        service: relation('services', { label: 'Þjónusta' }),
-        photos: gallery({ label: 'Myndir og myndbönd' }),
-        year: text({ label: 'Ár' }),
-        showOnHome: toggle({ label: 'Sýna á forsíðu' }),
+        title: text({ required: true, i18n: true, max: 80 }),
+        summary: text({ i18n: true, max: 200, multiline: true }),
+        body: richText({ i18n: true }),
+        service: relation('services'),
+        photos: gallery(),
+        year: text(),
+        showOnHome: toggle(),
       },
     },
     services: {
-      label: 'Þjónusta',
       titleField: 'name',
       sortable: true,
       fields: {
-        name: text({ label: 'Heiti', required: true, i18n: true }),
-        summary: text({ label: 'Stutt lýsing', i18n: true, max: 160 }),
-        body: richText({ label: 'Lengri texti', i18n: true }),
-        image: image({ label: 'Mynd' }),
-        items: repeater({ item: text({ required: true, i18n: true }) }, { label: 'Atriði' }),
+        name: text({ required: true, i18n: true }),
+        summary: text({ i18n: true, max: 160 }),
+        body: richText({ i18n: true }),
+        image: image(),
+        items: repeater({ item: text({ required: true, i18n: true }) }),
       },
     },
     team: {
-      label: 'Teymi',
       titleField: 'name',
       sortable: true,
       fields: {
-        name: text({ label: 'Nafn', required: true }),
-        role: text({ label: 'Hlutverk', i18n: true }),
-        phone: text({ label: 'Símanúmer' }),
-        photo: image({ label: 'Mynd' }),
+        name: text({ required: true }),
+        role: text({ i18n: true }),
+        phone: text(),
+        photo: image(),
       },
     },
     equipment: {
-      label: 'Tæki',
       titleField: 'name',
       sortable: true,
+      drafts: true,
+      // The photo comes with image upload (#27).
       fields: {
-        name: text({ label: 'Heiti', required: true, i18n: true }),
-        description: text({ label: 'Lýsing', i18n: true, multiline: true }),
-        photo: image({ label: 'Mynd' }),
+        name: text({ required: true, i18n: true }),
+        description: text({ i18n: true, max: 120, multiline: true }),
       },
     },
     pages: {
-      label: 'Síður og textar',
       titleField: 'title',
       fields: {
-        title: text({ label: 'Heiti', required: true, i18n: true }),
-        seoTitle: text({ label: 'Titill fyrir leitarvélar', i18n: true, max: 60 }),
-        seoDescription: text({ label: 'Lýsing fyrir leitarvélar', i18n: true, max: 160 }),
+        title: text({ required: true, i18n: true }),
+        seoTitle: text({ i18n: true, max: 60 }),
+        seoDescription: text({ i18n: true, max: 160 }),
         sections: blocks({
-          hero: block('Hetja', {
+          hero: block({
             eyebrow: text({ i18n: true }),
             heading: text({ required: true, i18n: true }),
             intro: richText({ i18n: true }),
           }),
-          services: block('Þjónustuhringekja', { heading: text({ i18n: true }) }),
-          recentProjects: block('Nýleg verkefni', { heading: text({ i18n: true }) }),
-          howWeWork: block('Svona vinnum við', {
+          services: block({ heading: text({ i18n: true }) }),
+          recentProjects: block({ heading: text({ i18n: true }) }),
+          howWeWork: block({
             steps: repeater({
               title: text({ required: true, i18n: true }),
               text: text({ i18n: true }),
             }),
           }),
-          testimonials: block('Umsagnir', {
+          testimonials: block({
             items: repeater({ quote: text({ required: true, i18n: true }), name: text() }),
           }),
-          quoteForm: block('Tilboðsform', {
+          quoteForm: block({
             heading: text({ i18n: true }),
             intro: text({ i18n: true }),
           }),
@@ -110,17 +107,13 @@ export default defineCms({
   },
   singletons: {
     settings: {
-      label: 'Stillingar',
       fields: {
-        company: text({ label: 'Fyrirtæki', required: true }),
-        kennitala: text({ label: 'Kennitala' }),
-        phone: text({ label: 'Sími', required: true }),
-        email: text({ label: 'Netfang', required: true }),
-        enquiriesTo: text({
-          label: 'Senda fyrirspurnir á',
-          help: 'Fleiri netföng aðskilin með kommu.',
-        }),
-        responseTime: text({ label: 'Svartími', i18n: true }),
+        company: text({ required: true }),
+        kennitala: text(),
+        phone: text({ required: true }),
+        email: text({ required: true }),
+        enquiriesTo: text(),
+        responseTime: text({ i18n: true }),
       },
     },
   },

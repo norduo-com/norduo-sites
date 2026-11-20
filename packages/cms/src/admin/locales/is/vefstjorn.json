@@ -1,0 +1,46 @@
+{
+  "title": "Vefstjórn",
+  "nav": {
+    "label": "Vefstjórn",
+    "overview": "Yfirlit",
+    "media": "Myndasafn"
+  },
+  "status": {
+    "label": "Staða",
+    "draft": "Drög",
+    "published": "Birt"
+  },
+  "actions": {
+    "new": "Nýtt",
+    "save": "Vista",
+    "saving": "Vistar…",
+    "delete": "Eyða",
+    "confirmDelete": "Já, eyða",
+    "cancel": "Hætta við"
+  },
+  "list": {
+    "loading": "Hleður…",
+    "empty": "Ekkert hér enn.",
+    "untitled": "Án heitis"
+  },
+  "editor": {
+    "new": "Nýtt atriði",
+    "pick": "Veldu atriði í listanum eða búðu til nýtt.",
+    "saved": "Vistað",
+    "confirmDelete": "Viltu eyða þessu atriði? Það er ekki hægt að afturkalla.",
+    "unsupported": "Þessum reit er ekki hægt að breyta hér enn."
+  },
+  "errors": {
+    "required": "Þennan reit þarf að fylla út.",
+    "tooLong": "Mest {{max}} stafir.",
+    "invalid": "Ógilt gildi.",
+    "fixFields": "Lagaðu reitina sem eru merktir.",
+    "loadFailed": "Ekki tókst að sækja gögn. Reyndu aftur.",
+    "saveFailed": "Ekki tókst að vista. Reyndu aftur.",
+    "deleteFailed": "Ekki tókst að eyða. Reyndu aftur.",
+    "unauthorized": "Innskráning rann út. Endurhlaðið síðunni til að skrá þig inn aftur."
+  },
+  "screens": {
+    "comingSoon": "Þessi skjár kemur síðar."
+  }
+}

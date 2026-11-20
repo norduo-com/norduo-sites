@@ -1,9 +1,14 @@
 import type { BlockConfig, Fields, Infer } from './fields'
 
+/*
+ * The config holds no labels. Vefstjórn looks them up in the site's `cms` translation
+ * namespace by config path, e.g. `collections.equipment.label` (see `labels.ts`).
+ */
+
 export interface CollectionConfig<F extends Fields = Fields> {
-  /** Plural label in the Vefstjórn menu, e.g. "Verkefni". */
-  label: string
   fields: F
+  /** Items are saved as Drög or Birt; only Birt ones are public. Without it, saving publishes. */
+  drafts?: boolean
   /** Field used as the title in lists. */
   titleField?: keyof F & string
   /** Drag-to-reorder in lists; the order is used on the site. */
@@ -11,7 +16,6 @@ export interface CollectionConfig<F extends Fields = Fields> {
 }
 
 export interface SingletonConfig<F extends Fields = Fields> {
-  label: string
   fields: F
 }
 
