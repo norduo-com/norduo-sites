@@ -1,3 +1,4 @@
+import type { MediaInfo } from '../media'
 import type { AdminDocument } from '../server'
 
 export type Status = AdminDocument['status']
@@ -13,17 +14,20 @@ export class ApiError extends Error {
 
 /** Thin client for the admin API, e.g. `adminApi('/api/cms')`. */
 export function adminApi(base: string) {
-  async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-    const res = await fetch(`${base}/admin${path}`, {
-      method,
-      credentials: 'same-origin',
-      headers: body === undefined ? {} : { 'content-type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
+  async function send<T>(method: string, path: string, init: RequestInit = {}): Promise<T> {
+    const res = await fetch(`${base}/admin${path}`, { method, credentials: 'same-origin', ...init })
     const json: unknown = await res.json().catch(() => null)
     if (!res.ok) throw new ApiError(res.status, json)
     return json as T
   }
+  const request = <T>(method: string, path: string, body?: unknown) =>
+    send<T>(
+      method,
+      path,
+      body === undefined
+        ? {}
+        : { headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) },
+    )
 
   const path = (type: string, slug?: string) =>
     `/content/${encodeURIComponent(type)}${slug ? `/${encodeURIComponent(slug)}` : ''}`
@@ -39,6 +43,19 @@ export function adminApi(base: string) {
       input: { status: Status; data: Record<string, unknown> },
     ) => request<{ ok: true }>('PUT', path(type, slug), input),
     remove: (type: string, slug: string) => request<{ ok: true }>('DELETE', path(type, slug)),
+    /** A master the browser made (WebP, or JPEG when it can't encode WebP). */
+    uploadMaster: (file: File) => {
+      const form = new FormData()
+      form.append('file', file)
+      return send<MediaInfo>('POST', '/media', { body: form })
+    },
+    /** A HEIC the browser can't decode, as it is; `makeMaster` then turns it into a master. */
+    uploadRaw: (file: File) =>
+      send<{ id: string }>('POST', `/media/raw?filename=${encodeURIComponent(file.name)}`, {
+        headers: { 'content-type': file.type || 'image/heic' },
+        body: file,
+      }),
+    makeMaster: (id: string) => send<MediaInfo>('POST', `/media/raw/${encodeURIComponent(id)}`),
   }
 }
 

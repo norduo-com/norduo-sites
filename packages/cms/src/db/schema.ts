@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm'
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
 /**
  * Generic schema shared by every site. Content lives as JSON in `documents`,
@@ -33,19 +33,45 @@ export const documents = sqliteTable(
   ],
 )
 
+/** Photos. Only the master image is stored (ADR 0001); `/img` makes every width from it. */
 export const media = sqliteTable('media', {
   id: text('id').primaryKey(),
-  /** Object key of the original in R2. */
+  /** Object key of the master image in R2. */
   key: text('key').notNull().unique(),
+  /** Name of the file the editor picked. */
   filename: text('filename').notNull(),
+  /** Of the master: always image/webp. */
   mime: text('mime').notNull(),
+  /** Bytes of the master. */
   size: integer('size').notNull(),
   width: integer('width'),
   height: integer('height'),
+  /** Blurred preview as a data URI, made once at upload. */
+  lqip: text('lqip'),
   /** Optional description; editing it in Myndasafn updates it everywhere. */
   alt: text('alt'),
   createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(now),
 })
+
+/**
+ * Which document uses which photo, one row per document locale. Rewritten on every save,
+ * so Myndasafn can tell where a photo is used without reading every document.
+ */
+export const mediaRefs = sqliteTable(
+  'media_refs',
+  {
+    mediaId: text('media_id')
+      .notNull()
+      .references(() => media.id),
+    docType: text('doc_type').notNull(),
+    docSlug: text('doc_slug').notNull(),
+    locale: text('locale').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.mediaId, t.docType, t.docSlug, t.locale] }),
+    index('media_refs_doc').on(t.docType, t.docSlug),
+  ],
+)
 
 export const enquiries = sqliteTable('enquiries', {
   id: text('id').primaryKey(),

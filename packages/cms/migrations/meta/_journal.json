@@ -15,6 +15,13 @@
       "when": 1795179412433,
       "tag": "0001_site_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1795202293202,
+      "tag": "0002_media",
+      "breakpoints": true
     }
   ]
 }
