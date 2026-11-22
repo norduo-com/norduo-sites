@@ -32,13 +32,13 @@ Read `docs/architecture.md` before making structural decisions. It records what 
 ```sh
 pnpm check                              # lint + typecheck + unit tests, all packages
 pnpm --filter berghald dev              # site at :5173, admin at /vefstjorn
-pnpm --filter berghald test:e2e         # Playwright
+pnpm test:e2e --filter berghald         # Playwright (turbo builds first)
 pnpm --filter berghald db:migrate:local
 pnpm --filter berghald db:migrate:preview # the PR-preview D1 (CI also runs it)
 pnpm --filter @norduo/cms db:generate   # after editing src/db/schema.ts
 ```
 
-Run `pnpm check` before calling work done. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
+Run `pnpm check` before calling work done. Logs, R2 and D1 on the live site: `docs/ops.md`. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
 
 ## Stack
 
