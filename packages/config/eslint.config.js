@@ -8,10 +8,13 @@ import simpleImportSort from 'eslint-plugin-simple-import-sort'
 import globals from 'globals'
 import tseslint from 'typescript-eslint'
 
+import norduo from './spacing-tokens.js'
+
 /**
- * @param {{ tsconfigRootDir: string, ignores?: string[] }} options
+ * @param {{ tsconfigRootDir: string, ignores?: string[], spacingTokens?: boolean }} options
+ *   `spacingTokens`: for sites, whose class names use the spacing and radius tokens.
  */
-export function config({ tsconfigRootDir, ignores = [] }) {
+export function config({ tsconfigRootDir, ignores = [], spacingTokens = false }) {
   return tseslint.config(
     {
       ignores: [
@@ -51,6 +54,7 @@ export function config({ tsconfigRootDir, ignores = [] }) {
         '@typescript-eslint/restrict-template-expressions': ['error', { allowNumber: true }],
       },
     },
+    spacingTokens ? { plugins: { norduo }, rules: { 'norduo/spacing-tokens': 'error' } } : {},
     {
       // Plain JS config files are linted without type information.
       files: ['**/*.{js,mjs,cjs}'],
