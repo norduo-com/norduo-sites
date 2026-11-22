@@ -24,7 +24,7 @@ export function ImageInput({
   const { t } = useTranslation('vefstjorn')
   const picker = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<UploadErrorCode | null>(null)
+  const [error, setError] = useState<{ code: UploadErrorCode; detail?: string } | null>(null)
   const current = value as ImageValue | undefined
 
   async function pick(file: File) {
@@ -34,7 +34,9 @@ export function ImageInput({
       const media = await uploadImage(api, file)
       onChange({ ...current, mediaId: media.id })
     } catch (err) {
-      setError(err instanceof UploadError ? err.code : 'failed')
+      setError(
+        err instanceof UploadError ? { code: err.code, detail: err.detail } : { code: 'failed' },
+      )
     } finally {
       setBusy(false)
     }
@@ -91,7 +93,12 @@ export function ImageInput({
       </div>
       {error && (
         <p role="alert" className="text-sm text-red-700">
-          {t(`image.errors.${error}`)}
+          {t(`image.errors.${error.code}`)}
+          {error.detail && (
+            <span className="text-xs text-neutral-500 block">
+              {t('image.errorDetail', { detail: error.detail })}
+            </span>
+          )}
         </p>
       )}
     </div>

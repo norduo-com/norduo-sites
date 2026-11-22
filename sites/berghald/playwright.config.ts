@@ -12,6 +12,17 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
+    // Safari can't encode WebP, so photo upload takes the JPEG path there (issue #27).
+    {
+      name: 'webkit',
+      testMatch: /photos\.spec/,
+      use: { ...devices['Desktop Safari'] },
+    },
+    {
+      name: 'iphone',
+      testMatch: /photos\.spec/,
+      use: { ...devices['iPhone 15'] },
+    },
   ],
   // The build must contain .dev.vars (ENVIRONMENT=development): it turns off the Access
   // check and the page cache. CI copies .dev.vars.example before building.

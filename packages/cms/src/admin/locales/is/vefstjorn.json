@@ -98,6 +98,7 @@
       "tooBig": "Vafrinn getur ekki lesið þessa mynd og hún er stærri en 20 MB. Vistaðu hana sem JPEG og reyndu aftur.",
       "unsupported": "Ekki tókst að lesa myndina. Notaðu JPG, PNG, HEIC eða WebP.",
       "failed": "Ekki tókst að hlaða myndinni upp. Reyndu aftur."
-    }
+    },
+    "errorDetail": "Villukóði: {{detail}}"
   }
 }

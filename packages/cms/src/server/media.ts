@@ -152,7 +152,7 @@ async function store(
   return { id, width, height, lqip, alt: null }
 }
 
-interface Failure {
+export interface MediaFailure {
   error: string
   status: 404 | 413 | 415 | 422 | 501
 }
@@ -164,7 +164,7 @@ interface Failure {
 export async function storeBrowserMaster(
   env: MediaBindings,
   file: File,
-): Promise<MediaInfo | Failure> {
+): Promise<MediaInfo | MediaFailure> {
   const { IMAGES } = env
   if (!IMAGES) return { error: 'noImages', status: 501 }
   if (file.type !== 'image/webp' && file.type !== 'image/jpeg')
@@ -214,7 +214,7 @@ const BLANK_PNG = Uint8Array.from(
 export async function masterFromRaw(
   env: MediaBindings,
   id: string,
-): Promise<{ media: MediaInfo; created: boolean } | Failure> {
+): Promise<{ media: MediaInfo; created: boolean } | MediaFailure> {
   const { IMAGES } = env
   if (!IMAGES) return { error: 'noImages', status: 501 }
   if (!ID.test(id)) return { error: 'notFound', status: 404 }
@@ -257,7 +257,7 @@ export async function putRaw(
   env: MediaBindings,
   request: Request,
   filename: string,
-): Promise<{ id: string } | Failure> {
+): Promise<{ id: string } | MediaFailure> {
   const type = request.headers.get('content-type') ?? ''
   if (!/^image\/hei[cf]$/.test(type)) return { error: 'type', status: 415 }
   const length = Number(request.headers.get('content-length'))
