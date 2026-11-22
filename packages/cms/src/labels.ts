@@ -11,6 +11,7 @@ import type { BlockConfig, Field, Fields } from './fields'
 export const collectionLabelKey = (name: string) => `collections.${name}.label`
 export const singletonLabelKey = (name: string) => `singletons.${name}.label`
 export const blockLabelKey = (name: string) => `blocks.${name}.label`
+export const pageLabelKey = (name: string) => `pages.${name}.label`
 
 /** Candidate keys for a field's label, most specific first. `owner` is e.g. "collections.team". */
 export function fieldLabelKeys(owner: string, field: string): string[] {
@@ -49,6 +50,8 @@ export function requiredLabels(config: CmsConfig): string[][] {
   const walkFields = (owner: string, fields: Fields) => {
     for (const [name, raw] of Object.entries(fields)) {
       const field = raw as Nested
+      // `seo()` and its sub-fields are generic, labelled in the `vefstjorn` namespace.
+      if (field.kind === 'seo') continue
       out.push(fieldLabelKeys(owner, name))
       for (const choice of field.choices ?? []) out.push(choiceLabelKeys(owner, name, choice))
       for (const mark of Object.keys(field.marks ?? {})) out.push(markLabelKeys(owner, name, mark))
@@ -66,6 +69,10 @@ export function requiredLabels(config: CmsConfig): string[][] {
     walkFields(`singletons.${name}`, s.fields)
   }
   for (const [name, def] of Object.entries(config.blocks ?? {})) walkBlock(name, def)
+  for (const [name, p] of Object.entries(config.pages ?? {})) {
+    out.push([pageLabelKey(name)])
+    walkFields(`pages.${name}`, p.fields)
+  }
 
   // A block used by several fields is listed once.
   const seen = new Set<string>()

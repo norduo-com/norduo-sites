@@ -4,7 +4,7 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 
 import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
-import type { CmsConfig, DocOf } from '../define'
+import { type CmsConfig, type DocOf, pageFields, type PageOf, PAGES_SCREEN } from '../define'
 import { type Fields, schemaOf } from '../fields'
 import { mediaIdsOf } from '../media'
 import { slugify, uniqueSlug } from '../slug'
@@ -111,7 +111,38 @@ export async function listPublished<
   }))
 }
 
+/**
+ * A page's saved content for a site loader: header fields, `seo` and `blocks`, or null
+ * before its first save. Pages go live on save, so there is no draft to skip.
+ */
+export async function getPage<
+  C extends CmsConfig,
+  K extends keyof NonNullable<C['pages']> & string,
+>(
+  db: D1Database,
+  config: C,
+  name: K,
+  options: { locale?: string } = {},
+): Promise<PageOf<C, K> | null> {
+  const row = await drizzle(db)
+    .select({ data: documents.data })
+    .from(documents)
+    .where(
+      and(
+        eq(documents.type, PAGES_TYPE),
+        eq(documents.slug, name),
+        eq(documents.locale, options.locale ?? config.site.defaultLocale),
+        eq(documents.status, 'published'),
+      ),
+    )
+    .get()
+  return row ? (row.data as PageOf<C, K>) : null
+}
+
 type Db = ReturnType<typeof drizzle>
+
+/** Every page is stored under this type, with the page name as its slug. */
+const PAGES_TYPE = PAGES_SCREEN
 
 /** Names in SQL JSON paths come from the config; only plain identifiers are allowed. */
 const isIdentifier = (name: string) => /^[A-Za-z_]\w*$/.test(name)
@@ -228,12 +259,22 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   const collections = config.collections
   const singletons = config.singletons ?? {}
-  const fieldsOf = (type: string) =>
+  const pages = config.pages ?? {}
+  const hasPages = Object.keys(pages).length > 0
+  /** A type the API knows: a collection, a singleton or, if the site has pages, "pages". */
+  const isType = (type: string) =>
+    Object.hasOwn(collections, type) ||
+    Object.hasOwn(singletons, type) ||
+    (hasPages && type === PAGES_TYPE)
+  /** Fields of one document; a page's depend on which page it is. */
+  const fieldsOf = (type: string, slug: string | null) =>
     Object.hasOwn(collections, type)
       ? collections[type]?.fields
       : Object.hasOwn(singletons, type)
         ? singletons[type]?.fields
-        : undefined
+        : type === PAGES_TYPE && slug !== null && Object.hasOwn(pages, slug)
+          ? pageFields(config, slug)
+          : undefined
   /** Only collections with `drafts: true` can hold Drög; everything else goes live on save. */
   const hasDrafts = (type: string) =>
     Object.hasOwn(collections, type) && collections[type]?.drafts === true
@@ -247,7 +288,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   app.get('/content/:type', async (c) => {
     const type = c.req.param('type')
-    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
+    if (!isType(type)) return c.json({ error: 'Unknown type' }, 404)
     const locale = localeOf(c)
     const rows = await drizzle(c.env.DB)
       .select({ slug: documents.slug, data: documents.data })
@@ -295,6 +336,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
       admin: config.admin ?? {},
       collections: Object.keys(collections),
       singletons: Object.keys(singletons),
+      pages: Object.keys(pages),
     }),
   )
 
@@ -312,7 +354,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   app.get('/admin/content/:type', async (c) => {
     const type = c.req.param('type')
-    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
+    if (!isType(type)) return c.json({ error: 'Unknown type' }, 404)
     const locale = localeOf(c)
     const rows = await drizzle(c.env.DB)
       .select(adminColumns)
@@ -324,7 +366,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   app.get('/admin/content/:type/:slug', async (c) => {
     const { type, slug } = c.req.param()
-    if (!fieldsOf(type)) return c.json({ error: 'Unknown type' }, 404)
+    if (!fieldsOf(type, slug)) return c.json({ error: 'Unknown type' }, 404)
     const locale = localeOf(c)
     const row = await drizzle(c.env.DB)
       .select(adminColumns)
@@ -341,7 +383,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     type: string,
     id: string | null,
   ) {
-    const fields = fieldsOf(type)
+    const fields = fieldsOf(type, id)
     if (!fields) return { error: 404 as const }
     const body = saveInput.safeParse(await c.req.json().catch(() => null))
     if (!body.success) return { error: 400 as const, issues: z.treeifyError(body.error) }
@@ -415,13 +457,13 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if ('error' in save) return c.json({ error: save.issues ?? 'Unknown type' }, save.error)
 
     const db = drizzle(c.env.DB)
-    const isSingleton = Object.hasOwn(singletons, type)
+    const isSingleton = Object.hasOwn(singletons, type) || type === PAGES_TYPE
     const exists = await db
       .select({ slug: documents.slug })
       .from(documents)
       .where(and(eq(documents.type, type), eq(documents.slug, slug)))
       .get()
-    // Collection items are created with POST; a singleton is created on its first save.
+    // Collection items are created with POST; a singleton or page is created on its first save.
     if (!exists && !isSingleton) return c.json({ error: 'Not found' }, 404)
 
     const now = new Date()

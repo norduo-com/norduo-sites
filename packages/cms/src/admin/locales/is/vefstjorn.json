@@ -3,7 +3,8 @@
   "nav": {
     "label": "Vefstjórn",
     "overview": "Yfirlit",
-    "media": "Myndasafn"
+    "media": "Myndasafn",
+    "pages": "Síður og textar"
   },
   "status": {
     "label": "Staða",
@@ -99,5 +100,18 @@
       "unsupported": "Ekki tókst að lesa myndina. Notaðu JPG, PNG, HEIC eða WebP.",
       "failed": "Ekki tókst að hlaða myndinni upp. Reyndu aftur."
     }
+  },
+  "seo": {
+    "label": "Leitarvélar og deiling",
+    "keyword": "Lykilorð",
+    "keywordHelp": "Orðið sem fólk leitar að. Sést bara hér, í forskoðuninni.",
+    "title": "Titill",
+    "description": "Lýsing",
+    "count": "{{count}} / {{max}} stafir",
+    "image": "Deilimynd",
+    "imageHelp": "Sést þegar síðunni er deilt, t.d. á Facebook.",
+    "preview": "Forskoðun á Google",
+    "noTitle": "Enginn titill",
+    "noDescription": "Engin lýsing"
   }
 }

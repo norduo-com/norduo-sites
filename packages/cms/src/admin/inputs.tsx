@@ -3,10 +3,12 @@ import { useTranslation } from 'react-i18next'
 
 import type { Field, Fields } from '../fields'
 import { choiceLabelKeys, fieldHelpKeys, fieldLabelKeys } from '../labels'
+import type { SeoField } from '../seo'
 import type { AdminDocument } from '../server'
 import { useAdmin } from './context'
 import { ImageInput } from './ImageInput'
 import { RichTextInput } from './RichTextInput'
+import { SeoInput } from './SeoInput'
 
 /** Field errors keyed by value path (`cta.heading`), as `vefstjorn` keys with options. */
 export type FieldErrors = Record<string, { key: string; max?: number; min?: number }>
@@ -51,6 +53,7 @@ const SUPPORTED = new Set([
   'group',
   'richText',
   'image',
+  'seo',
 ])
 
 export interface FieldInputProps {
@@ -64,11 +67,15 @@ export interface FieldInputProps {
   value: unknown
   onChange: (value: unknown) => void
   errors: FieldErrors
+  /** The whole document, for inputs that read other fields (seo() fallbacks). */
+  doc?: Record<string, unknown>
+  /** The document's path on the site, for the Google preview. */
+  previewPath?: string
 }
 
 /** One field's input with its label, help text and error, chosen by the field's kind. */
 export function FieldInput(props: FieldInputProps) {
-  const { owner, name, field, path, idPrefix, value, onChange, errors } = props
+  const { owner, name, field, path, idPrefix, value, onChange, errors, doc, previewPath } = props
   const { t } = useTranslation(['vefstjorn', 'cms'])
   const id = `${idPrefix}-${path}`
   const label = t(fieldLabelKeys(owner, name), { ns: 'cms' })
@@ -122,6 +129,21 @@ export function FieldInput(props: FieldInputProps) {
         <span className="font-medium">{label}</span>
         <p className="text-sm text-neutral-500">{t('editor.unsupported')}</p>
       </div>
+    )
+  }
+
+  if (field.kind === 'seo') {
+    return (
+      <SeoInput
+        field={field as SeoField}
+        path={path}
+        idPrefix={idPrefix}
+        value={value}
+        doc={doc ?? {}}
+        previewPath={previewPath}
+        errors={errors}
+        onChange={onChange}
+      />
     )
   }
 

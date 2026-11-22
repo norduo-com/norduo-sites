@@ -1,28 +1,25 @@
-import { listPublished, mediaByIds } from '@norduo/cms/server'
+import { seoMeta } from '@norduo/cms'
+import { getPage, listPublished, mediaByIds } from '@norduo/cms/server'
 import { useTranslation } from 'react-i18next'
 
 import { CallButton } from '~/components/CallButton'
 import { Photo } from '~/components/Photo'
 import { cloudflare } from '~/context'
+import { headTags } from '~/seo'
 
 import cms from '../../cms.config'
 import type { Route } from './+types/home'
 
-export function meta(_: Route.MetaArgs) {
-  return [
-    { title: 'Berghald – lóðafrágangur, hellulagnir og hleðslur' },
-    {
-      name: 'description',
-      content: 'Berghald skapar nýja garða og gefur eldri görðum nýtt líf.',
-    },
-  ]
+export function meta({ loaderData }: Route.MetaArgs) {
+  return loaderData.head
 }
 
-export async function loader({ context }: Route.LoaderArgs) {
+export async function loader({ context, request }: Route.LoaderArgs) {
   const { env } = context.get(cloudflare)
-  const items = await listPublished(env.DB, cms, 'equipment', {
-    fields: ['name', 'description', 'photo'],
-  })
+  const [page, items] = await Promise.all([
+    getPage(env.DB, cms, 'home'),
+    listPublished(env.DB, cms, 'equipment', { fields: ['name', 'description', 'photo'] }),
+  ])
   const media = await mediaByIds(
     env.DB,
     items.flatMap((i) => (i.data.photo ? [i.data.photo.mediaId] : [])),
@@ -32,16 +29,28 @@ export async function loader({ context }: Route.LoaderArgs) {
     data,
     photo: photo ? (media.get(photo.mediaId) ?? null) : null,
   }))
-  return { equipment }
+  const head = headTags(seoMeta(cms.pages.home.seo, page ?? {}), {
+    siteName: cms.site.name,
+    origin: new URL(request.url).origin,
+    ownTitle: Boolean(page?.seo?.title?.trim()),
+  })
+  // Only the header goes to the browser, not the whole page.
+  const header = page && { eyebrow: page.eyebrow, heading: page.heading, lead: page.lead }
+  return { head, header, equipment }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
   const { t } = useTranslation('site')
+  const { header } = loaderData
   return (
     <main className="flex flex-col gap-s p-g">
+      {/* Until the header is filled in in Vefstjórn, the prototype's hero text stands in. */}
       <section className="bg-neutral-900 text-white rounded-box p-in">
-        <p className="text-sm tracking-widest uppercase">Lóðafrágangur · Hellulagnir · Hleðslur</p>
-        <h1 className="mt-4 text-5xl">Við mótum lóðina þína</h1>
+        <p className="text-sm tracking-widest uppercase">
+          {header?.eyebrow ?? 'Lóðafrágangur · Hellulagnir · Hleðslur'}
+        </p>
+        <h1 className="mt-4 text-5xl">{header?.heading ?? 'Við mótum lóðina þína'}</h1>
+        {header?.lead && <p className="mt-4 text-lg max-w-prose">{header.lead}</p>}
       </section>
       <CallButton phone="691 8944" />
       {loaderData.equipment.length > 0 && (

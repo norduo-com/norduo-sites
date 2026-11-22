@@ -1,4 +1,5 @@
-import type { BlockConfig, Fields, Infer } from './fields'
+import { type BlockConfig, blocks, type BlockValue, type Fields, type Infer } from './fields'
+import type { SeoField, SeoMeta } from './seo'
 
 /*
  * The config holds no labels. Vefstjórn looks them up in the site's `cms` translation
@@ -17,7 +18,31 @@ export interface CollectionConfig<F extends Fields = Fields> {
 
 export interface SingletonConfig<F extends Fields = Fields> {
   fields: F
+  /** List it in another screen instead of the menu, e.g. the footer under Síður og textar. */
+  showUnder?: typeof PAGES_SCREEN
 }
+
+/**
+ * One of the site's fixed pages. Editors can't create or delete pages; each one is saved
+ * once per locale and goes live on save, as type "pages" with the page name as its slug, so
+ * a page may share its name with a collection (the Þjónusta page and the services). Its header and `seo` are fixed fields; its body is
+ * a list of blocks picked from the site's `blocks` library.
+ */
+export interface PageConfig<F extends Fields = Fields> {
+  /** Path of the Icelandic page, e.g. "/thjonusta". None for a page the site shows itself (404). */
+  route?: string
+  /** The page header (eyebrow, heading, lead …), stored at the top level of the page. */
+  fields: F
+  /** Stored under `seo`. Its fallbacks point at header fields. */
+  seo: SeoField
+  /** Names of the library blocks editors can add, stored under `blocks`. */
+  blocks?: readonly string[]
+}
+
+/** Built-in Vefstjórn screens; no content may take their names. */
+export const PAGES_SCREEN = 'pages'
+export const MEDIA_SCREEN = 'media'
+const RESERVED_FIELDS = ['seo', 'blocks']
 
 export interface CmsConfig {
   site: {
@@ -40,6 +65,57 @@ export interface CmsConfig {
   singletons?: Record<string, SingletonConfig>
   /** Blocks a site's pages can be built from. */
   blocks?: Record<string, BlockConfig>
+  /** The site's fixed pages, listed in Vefstjórn under Síður og textar. */
+  pages?: Record<string, PageConfig>
+}
+
+function checkPages(config: CmsConfig) {
+  const library = config.blocks ?? {}
+  const routes = new Set<string>()
+  for (const [name, page] of Object.entries(config.pages ?? {})) {
+    if (!/^[a-z][A-Za-z0-9]*$/.test(name)) {
+      throw new Error(`Page name "${name}" must be camelCase letters and digits`)
+    }
+    if (page.route !== undefined) {
+      if (!page.route.startsWith('/')) throw new Error(`Page "${name}": route must start with /`)
+      if (routes.has(page.route)) throw new Error(`Route "${page.route}" is used by two pages`)
+      routes.add(page.route)
+    }
+    for (const field of RESERVED_FIELDS) {
+      if (Object.hasOwn(page.fields, field)) {
+        throw new Error(`Page "${name}" can't have a header field named "${field}"`)
+      }
+    }
+    for (const from of [page.seo.titleFrom, page.seo.descriptionFrom]) {
+      if (from !== undefined && !Object.hasOwn(page.fields, from)) {
+        throw new Error(`Page "${name}": seo falls back to "${from}", which isn't a header field`)
+      }
+    }
+    for (const b of page.blocks ?? []) {
+      if (!Object.hasOwn(library, b)) throw new Error(`Page "${name}" allows unknown block "${b}"`)
+    }
+  }
+}
+
+const pageFieldsCache = new WeakMap<PageConfig, Fields>()
+
+/** Every field of a page: its header, `seo` and, if it allows any, `blocks`. */
+export function pageFields(config: CmsConfig, name: string): Fields {
+  const page = config.pages && Object.hasOwn(config.pages, name) ? config.pages[name] : undefined
+  if (!page) throw new Error(`Unknown page "${name}"`)
+  const cached = pageFieldsCache.get(page)
+  if (cached) return cached
+  const library = config.blocks ?? {}
+  const allowed = Object.fromEntries(
+    (page.blocks ?? []).flatMap((b) => (Object.hasOwn(library, b) ? [[b, library[b]]] : [])),
+  ) as Record<string, BlockConfig>
+  const fields: Fields = {
+    ...page.fields,
+    seo: page.seo,
+    ...(Object.keys(allowed).length ? { blocks: blocks(allowed) } : {}),
+  }
+  pageFieldsCache.set(page, fields)
+  return fields
 }
 
 /** Identity helper that keeps the literal types of the config. */
@@ -55,6 +131,17 @@ export function defineCms<const C extends CmsConfig>(config: C): C {
       }
     }
   }
+  for (const name of Object.keys(config.singletons ?? {})) {
+    if (Object.hasOwn(config.collections, name) || name === PAGES_SCREEN || name === MEDIA_SCREEN) {
+      throw new Error(`Singleton "${name}" has the name of another type`)
+    }
+  }
+  for (const name of Object.keys(config.collections)) {
+    if (name === PAGES_SCREEN || name === MEDIA_SCREEN) {
+      throw new Error(`Collection "${name}" has the name of a Vefstjórn screen`)
+    }
+  }
+  checkPages(config)
   if (!config.site.locales.includes(config.site.defaultLocale)) {
     throw new Error(`defaultLocale "${config.site.defaultLocale}" is not in locales`)
   }
@@ -69,3 +156,11 @@ export type DocOf<C extends CmsConfig, K extends keyof C['collections']> = Infer
 export type SingletonOf<C extends CmsConfig, K extends keyof NonNullable<C['singletons']>> = Infer<
   NonNullable<C['singletons']>[K]['fields']
 >
+
+/** Content type of a page: its header fields, `seo` and `blocks`. */
+export type PageOf<C extends CmsConfig, K extends keyof NonNullable<C['pages']>> = Infer<
+  NonNullable<C['pages']>[K]['fields']
+> & {
+  seo?: { keyword?: string; title?: string; description?: string; image?: SeoMeta['image'] }
+  blocks?: BlockValue<NonNullable<C['blocks']>>[]
+}

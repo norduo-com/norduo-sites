@@ -1,20 +1,31 @@
 import {
   block,
-  blocks,
   defineCms,
   email,
   gallery,
+  group,
   image,
   monthRange,
   relation,
   repeater,
   richText,
+  seo,
   slug,
   tel,
   text,
   toggle,
   year,
 } from '@norduo/cms'
+
+/** A page's header: `title` names it in the menu and is the SEO title's fallback. */
+const header = () => ({
+  title: text({ required: true, i18n: true, max: 40 }),
+  eyebrow: text({ i18n: true }),
+  heading: text({ i18n: true }),
+  lead: text({ i18n: true, multiline: true, max: 300 }),
+})
+
+const pageSeo = () => seo({ titleFrom: 'title', descriptionFrom: 'lead' })
 
 /**
  * Berghald's content model. Vefstjórn builds its screens from this file;
@@ -81,36 +92,6 @@ export default defineCms({
         photo: image(),
       },
     },
-    pages: {
-      titleField: 'title',
-      fields: {
-        title: text({ required: true, i18n: true }),
-        seoTitle: text({ i18n: true, max: 60 }),
-        seoDescription: text({ i18n: true, max: 160 }),
-        sections: blocks({
-          hero: block({
-            eyebrow: text({ i18n: true }),
-            heading: text({ required: true, i18n: true }),
-            intro: richText({ i18n: true }),
-          }),
-          services: block({ heading: text({ i18n: true }) }),
-          recentProjects: block({ heading: text({ i18n: true }) }),
-          howWeWork: block({
-            steps: repeater({
-              title: text({ required: true, i18n: true }),
-              text: text({ i18n: true }),
-            }),
-          }),
-          testimonials: block({
-            items: repeater({ quote: text({ required: true, i18n: true }), name: text() }),
-          }),
-          quoteForm: block({
-            heading: text({ i18n: true }),
-            intro: text({ i18n: true }),
-          }),
-        }),
-      },
-    },
   },
   singletons: {
     settings: {
@@ -123,5 +104,36 @@ export default defineCms({
         responseTime: text({ i18n: true }),
       },
     },
+    footer: {
+      showUnder: 'pages',
+      fields: {
+        text: text({ i18n: true, multiline: true }),
+        cta: group({
+          heading: text({ i18n: true }),
+          button: text({ i18n: true }),
+        }),
+      },
+    },
+  },
+  blocks: {
+    text: block({
+      heading: text({ i18n: true }),
+      body: richText({ i18n: true }),
+    }),
+    quoteForm: block({
+      eyebrow: text({ i18n: true }),
+      heading: text({ i18n: true }),
+      lead: text({ i18n: true, multiline: true }),
+    }),
+  },
+  pages: {
+    home: { route: '/', fields: header(), seo: pageSeo(), blocks: ['text', 'quoteForm'] },
+    services: { route: '/thjonusta', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    projects: { route: '/verkefni', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    about: { route: '/um-okkur', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    thankYou: { route: '/takk-fyrir', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    privacy: { route: '/personuvernd', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    cookies: { route: '/vafrakokur', fields: header(), seo: pageSeo(), blocks: ['text'] },
+    notFound: { fields: header(), seo: pageSeo(), blocks: ['text'] },
   },
 })
