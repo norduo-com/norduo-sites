@@ -5,7 +5,7 @@ import { defineCms } from '../define'
 import { image, text } from '../fields'
 import type { MediaInfo } from '../media'
 import { testDatabase } from '../test/d1'
-import { createCmsApi, createImageRoute, mediaByIds } from './index'
+import { createCmsApi, createImageRoute, hasMetadata, mediaByIds, stripMetadata } from './index'
 
 const cms = defineCms({
   site: {
@@ -91,13 +91,13 @@ describe('POST /admin/media', () => {
     expect([meta.width, meta.height]).toEqual([1200, 900])
   })
 
-  it('refuses a file that still has EXIF, so no location data reaches R2', async () => {
+  it('strips EXIF from a master (Safari writes some into canvas JPEGs), so none reaches R2', async () => {
     for (const format of ['webp', 'jpeg'] as const) {
-      const res = await upload(await photo(format, 800, 600, { exif: true }), `image/${format}`)
-      expect(res.status).toBe(422)
-      expect(await res.json()).toEqual({ error: 'metadata' })
+      const media = await uploaded(await photo(format, 800, 600, { exif: true }), `image/${format}`)
+      const stored = await db.r2.get(`media/${media.id}.webp`)
+      const bytes = new Uint8Array((await stored?.arrayBuffer()) ?? new ArrayBuffer(0))
+      expect(hasMetadata(bytes)).toBe(false)
     }
-    expect((await db.r2.list()).objects).toEqual([])
   })
 
   it('refuses a master wider than 2560 px, since the browser shrinks it first', async () => {
@@ -152,6 +152,29 @@ describe('raw HEIC the browser cannot decode', () => {
     expect(res.status).toBe(415)
     expect(await res.json()).toEqual({ error: 'undecodable' })
     expect(await db.r2.head(`tmp/${id}`)).toBeNull()
+  })
+})
+
+describe('stripMetadata', () => {
+  it('removes EXIF and XMP and leaves a photo that still decodes at its size', async () => {
+    for (const format of ['webp', 'jpeg'] as const) {
+      const withExif = await photo(format, 640, 480, { exif: true })
+      expect(hasMetadata(withExif)).toBe(true)
+      const clean = stripMetadata(withExif)
+      expect(hasMetadata(clean)).toBe(false)
+      const meta = await sharp(clean).metadata()
+      expect([meta.format, meta.width, meta.height, meta.exif]).toEqual([
+        format,
+        640,
+        480,
+        undefined,
+      ])
+    }
+  })
+
+  it('leaves a clean file as it is', async () => {
+    const clean = await photo('jpeg', 64, 48)
+    expect(stripMetadata(clean)).toEqual(clean)
   })
 })
 

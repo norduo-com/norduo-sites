@@ -11,7 +11,7 @@ import { slugify, uniqueSlug } from '../slug'
 import { verifyAccessJwt } from './access'
 import { masterFromRaw, putRaw, storeBrowserMaster } from './media'
 
-export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat } from './media'
+export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
 
 export interface CmsBindings {
   DB: D1Database
