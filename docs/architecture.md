@@ -149,7 +149,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 - Turborepo's `--affected` means only the changed parts get linted, tested and built.
 - Changes to `*.md` files only run the Prettier check: lint, typecheck, test, build, e2e, preview and deploy are skipped.
-- The pnpm store, the Turborepo cache and Playwright's Chromium are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
+- The pnpm store, the Turborepo cache and Playwright's Chromium and WebKit are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
 - A change in `sites/berghald` runs only Berghald's tests.
 - A change in `packages/cms` (or `ui`/`config`) runs the CMS tests and the tests of every site that depends on it.
 - Deploys go per site via Wrangler on push to `main` (`turbo run deploy --affected`).
