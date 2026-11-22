@@ -25,7 +25,7 @@ Read `docs/architecture.md` before making structural decisions. It records what 
 - **Everything runs on Cloudflare's free tier, with no paid server.** Mind the 10 ms CPU limit per request on Workers Free.
 - **Wording is Icelandic.** Use Icelandic for all user-facing text in the site and the admin. Code, comments and commit messages are in English.
 - **This is a public repo.** Never commit secrets, `.dev.vars`, client photos or personal data. Content lives in D1 and R2.
-- Use the spacing and radius tokens (`p-g`, `p-in`, `py-s`, `mt-s2`, `p-cp`, `p-tp`, `gap-grid`, `rounded-box`, `rounded-card`, `rounded-img`) instead of arbitrary values. See `docs/spacing-system.md`.
+- Spacing and radius come from the tokens in `docs/spacing-system.md`; `pnpm lint` flags arbitrary values in sites.
 
 ## Commands
 

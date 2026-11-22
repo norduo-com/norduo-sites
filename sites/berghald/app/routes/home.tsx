@@ -56,7 +56,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
                   <Photo
                     media={photo}
                     sizes="(min-width: 768px) 33vw, 100vw"
-                    className="mb-4 aspect-[4/3] w-full rounded-img object-cover"
+                    className="mb-4 aspect-4/3 w-full rounded-img object-cover"
                   />
                 )}
                 <h3 className="text-xl">{data.name}</h3>
