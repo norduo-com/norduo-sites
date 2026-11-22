@@ -80,7 +80,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 5. Images & uploads
 
 - **Photo upload** (`packages/cms/src/admin/upload.ts`, `src/server/media.ts`), one file at a time, retried on a 503:
-  - The browser decodes the photo, shrinks it to a master (≤ 2560 px) and re-encodes it as WebP q 0.9, or JPEG q 0.92 where it can't encode WebP; the Worker then converts that JPEG to WebP. The Worker refuses a master over 2560 px or one that still carries EXIF/XMP.
+  - The browser decodes the photo, shrinks it to a master (≤ 2560 px) and re-encodes it as WebP q 0.9, or JPEG q 0.92 where it can't encode WebP; the Worker then converts that JPEG to WebP. The Worker refuses a master over 2560 px and strips any EXIF/XMP block (Safari writes one into canvas JPEGs) before storing it.
   - A HEIC the browser can't decode (≤ 20 MB) goes to `tmp/<id>` as it is; a second request makes its master (drawn onto a blank base, which drops EXIF) and deletes `tmp/<id>`. An R2 lifecycle rule deletes anything under `tmp/` after 1 day. Larger ones are refused.
   - The blurred preview (32 px WebP) and the master's width and height are stored in `media` at upload. `media_refs` (document, locale → photo) is rewritten on every save.
   - `/img/<480|960|1440|1920>/<id>` serves the widths from the master through the Images binding, AVIF ≤ 1200 px, else WebP or JPEG by `Accept`, cached with the Cache API. Other widths are 404.

@@ -40,42 +40,74 @@ const bytesOf = async (stream: ReadableStream<Uint8Array>): Promise<Bytes> =>
 const ascii = (bytes: Uint8Array, at: number, length: number) =>
   String.fromCharCode(...bytes.subarray(at, at + length))
 
-/**
- * Whether a JPEG or WebP carries EXIF or XMP, where phones keep the camera and GPS position.
- * The Images binding copies it into every output, so such a file is never stored.
- */
-export function hasMetadata(bytes: Uint8Array): boolean {
+const u32le = (bytes: Uint8Array, at: number) =>
+  ((bytes[at] ?? 0) | ((bytes[at + 1] ?? 0) << 8) | ((bytes[at + 2] ?? 0) << 16)) +
+  (bytes[at + 3] ?? 0) * 0x1000000
+
+const isWebp = (bytes: Uint8Array) => ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP'
+
+/** Byte ranges of the EXIF and XMP blocks in a JPEG or WebP, where phones keep GPS. */
+function metadataRanges(bytes: Uint8Array): [number, number][] {
+  const out: [number, number][] = []
   if (bytes[0] === 0xff && bytes[1] === 0xd8) {
     // JPEG: walk the segments up to the image data.
     let at = 2
     while (at + 4 <= bytes.length && bytes[at] === 0xff) {
       const marker = bytes[at + 1] ?? 0
       if (marker === 0xda || marker === 0xd9) break
-      const length = ((bytes[at + 2] ?? 0) << 8) | (bytes[at + 3] ?? 0)
+      const end = at + 2 + (((bytes[at + 2] ?? 0) << 8) | (bytes[at + 3] ?? 0))
       if (marker === 0xe1) {
         const head = ascii(bytes, at + 4, 29)
         if (head.startsWith('Exif\0') || head.startsWith('http://ns.adobe.com/xap/1.0/'))
-          return true
+          out.push([at, end])
       }
-      at += 2 + length
+      at = end
     }
-    return false
-  }
-  if (ascii(bytes, 0, 4) === 'RIFF' && ascii(bytes, 8, 4) === 'WEBP') {
+  } else if (isWebp(bytes)) {
     let at = 12
     while (at + 8 <= bytes.length) {
+      const size = u32le(bytes, at + 4)
+      const end = at + 8 + size + (size % 2)
       const fourcc = ascii(bytes, at, 4)
-      if (fourcc === 'EXIF' || fourcc === 'XMP ') return true
-      const size =
-        (bytes[at + 4] ?? 0) |
-        ((bytes[at + 5] ?? 0) << 8) |
-        ((bytes[at + 6] ?? 0) << 16) |
-        ((bytes[at + 7] ?? 0) << 24)
-      at += 8 + size + (size % 2)
+      if (fourcc === 'EXIF' || fourcc === 'XMP ') out.push([at, end])
+      at = end
     }
-    return false
   }
-  return false
+  return out
+}
+
+/**
+ * Whether a JPEG or WebP carries EXIF or XMP. The Images binding copies it into every
+ * output, so it is stripped before anything is stored.
+ */
+export const hasMetadata = (bytes: Uint8Array) => metadataRanges(bytes).length > 0
+
+/**
+ * The same JPEG or WebP without its EXIF and XMP blocks. The image data isn't touched, so
+ * this costs only a copy. Safari writes a small EXIF block into every canvas JPEG.
+ */
+export function stripMetadata(bytes: Bytes): Bytes {
+  const ranges = metadataRanges(bytes)
+  if (ranges.length === 0) return bytes
+  const parts: Uint8Array[] = []
+  let at = 0
+  for (const [from, to] of ranges) {
+    parts.push(bytes.subarray(at, from))
+    at = to
+  }
+  parts.push(bytes.subarray(at))
+  const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0))
+  let offset = 0
+  for (const part of parts) {
+    out.set(part, offset)
+    offset += part.length
+  }
+  if (isWebp(out)) {
+    new DataView(out.buffer).setUint32(4, out.length - 8, true)
+    // VP8X flags: clear "has EXIF" (0x08) and "has XMP" (0x04).
+    if (ascii(out, 12, 4) === 'VP8X') out[20] = (out[20] ?? 0) & ~0x0c
+  }
+  return out
 }
 
 /** Most widths go out as AVIF or WebP; AVIF output stops at 1,200 px. */
@@ -138,8 +170,7 @@ export async function storeBrowserMaster(
   if (file.type !== 'image/webp' && file.type !== 'image/jpeg')
     return { error: 'type', status: 415 }
   if (file.size > MAX_BINDING_BYTES) return { error: 'tooBig', status: 413 }
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  if (hasMetadata(bytes)) return { error: 'metadata', status: 422 }
+  const bytes = stripMetadata(new Uint8Array(await file.arrayBuffer()))
 
   const info = await IMAGES.info(streamOf(bytes)).catch(() => null)
   if (!info || !('width' in info)) return { error: 'undecodable', status: 415 }
