@@ -1,5 +1,5 @@
 import { type BlockConfig, blocks, type BlockValue, type Fields, type Infer } from './fields'
-import type { SeoField, SeoMeta } from './seo'
+import type { SeoField, SeoValue } from './seo'
 
 /*
  * The config holds no labels. Vefstjórn looks them up in the site's `cms` translation
@@ -25,7 +25,7 @@ export interface SingletonConfig<F extends Fields = Fields> {
 /**
  * One of the site's fixed pages. Editors can't create or delete pages; each one is saved
  * once per locale and goes live on save, as type "pages" with the page name as its slug, so
- * a page may share its name with a collection (the Þjónusta page and the services). Its header and `seo` are fixed fields; its body is
+ * a page may share its name with a collection (a "projects" page listing the projects). Its header and `seo` are fixed fields; its body is
  * a list of blocks picked from the site's `blocks` library.
  */
 export interface PageConfig<F extends Fields = Fields> {
@@ -69,6 +69,19 @@ export interface CmsConfig {
   pages?: Record<string, PageConfig>
 }
 
+/** An `seo()` field's fallbacks must name fields of the same owner. */
+function checkSeo(owner: string, fields: Fields) {
+  for (const [name, field] of Object.entries(fields)) {
+    if (field.kind !== 'seo') continue
+    const { titleFrom, descriptionFrom } = field as SeoField
+    for (const from of [titleFrom, descriptionFrom]) {
+      if (from !== undefined && !Object.hasOwn(fields, from)) {
+        throw new Error(`${owner}.${name} falls back to "${from}", which isn't a field`)
+      }
+    }
+  }
+}
+
 function checkPages(config: CmsConfig) {
   const library = config.blocks ?? {}
   const routes = new Set<string>()
@@ -86,11 +99,7 @@ function checkPages(config: CmsConfig) {
         throw new Error(`Page "${name}" can't have a header field named "${field}"`)
       }
     }
-    for (const from of [page.seo.titleFrom, page.seo.descriptionFrom]) {
-      if (from !== undefined && !Object.hasOwn(page.fields, from)) {
-        throw new Error(`Page "${name}": seo falls back to "${from}", which isn't a header field`)
-      }
-    }
+    checkSeo(`Page "${name}"`, { ...page.fields, seo: page.seo })
     for (const b of page.blocks ?? []) {
       if (!Object.hasOwn(library, b)) throw new Error(`Page "${name}" allows unknown block "${b}"`)
     }
@@ -120,26 +129,26 @@ export function pageFields(config: CmsConfig, name: string): Fields {
 
 /** Identity helper that keeps the literal types of the config. */
 export function defineCms<const C extends CmsConfig>(config: C): C {
+  const screens: string[] = [PAGES_SCREEN, MEDIA_SCREEN]
   for (const [name, collection] of Object.entries(config.collections)) {
     if (!/^[a-z][a-z0-9-]*$/.test(name)) {
       throw new Error(`Collection name "${name}" must be lowercase letters, digits and dashes`)
     }
+    if (screens.includes(name))
+      throw new Error(`Collection "${name}" has a Vefstjórn screen's name`)
     for (const [field, def] of Object.entries(collection.fields)) {
       const from = def.kind === 'slug' ? (def as { from?: string }).from : undefined
       if (from !== undefined && !Object.hasOwn(collection.fields, from)) {
         throw new Error(`Slug "${name}.${field}" is made from "${from}", which isn't a field`)
       }
     }
+    checkSeo(name, collection.fields)
   }
-  for (const name of Object.keys(config.singletons ?? {})) {
-    if (Object.hasOwn(config.collections, name) || name === PAGES_SCREEN || name === MEDIA_SCREEN) {
+  for (const [name, singleton] of Object.entries(config.singletons ?? {})) {
+    if (Object.hasOwn(config.collections, name) || screens.includes(name)) {
       throw new Error(`Singleton "${name}" has the name of another type`)
     }
-  }
-  for (const name of Object.keys(config.collections)) {
-    if (name === PAGES_SCREEN || name === MEDIA_SCREEN) {
-      throw new Error(`Collection "${name}" has the name of a Vefstjórn screen`)
-    }
+    checkSeo(name, singleton.fields)
   }
   checkPages(config)
   if (!config.site.locales.includes(config.site.defaultLocale)) {
@@ -161,6 +170,6 @@ export type SingletonOf<C extends CmsConfig, K extends keyof NonNullable<C['sing
 export type PageOf<C extends CmsConfig, K extends keyof NonNullable<C['pages']>> = Infer<
   NonNullable<C['pages']>[K]['fields']
 > & {
-  seo?: { keyword?: string; title?: string; description?: string; image?: SeoMeta['image'] }
+  seo?: SeoValue
   blocks?: BlockValue<NonNullable<C['blocks']>>[]
 }

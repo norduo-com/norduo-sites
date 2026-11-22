@@ -6,5 +6,9 @@
     "notFound": "Page not found",
     "generic": "Something went wrong",
     "home": "Go to the home page"
+  },
+  "home": {
+    "eyebrow": "Landscaping · Paving · Stone walls",
+    "heading": "We shape your garden"
   }
 }

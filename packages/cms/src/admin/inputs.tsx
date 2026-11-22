@@ -9,6 +9,7 @@ import { useAdmin } from './context'
 import { ImageInput } from './ImageInput'
 import { RichTextInput } from './RichTextInput'
 import { SeoInput } from './SeoInput'
+import { inputClass } from './styles'
 
 /** Field errors keyed by value path (`cta.heading`), as `vefstjorn` keys with options. */
 export type FieldErrors = Record<string, { key: string; max?: number; min?: number }>
@@ -19,9 +20,6 @@ function errorAt(errors: FieldErrors, path: string, exact = false) {
   const inner = Object.keys(errors).find((k) => k.startsWith(`${path}.`))
   return inner ? errors[inner] : undefined
 }
-
-const inputClass =
-  'rounded-lg border border-neutral-300 bg-white px-3 py-2 aria-invalid:border-red-600'
 
 /** Empty inputs are left out of the data, so an optional field stays valid. */
 const orUndefined = (v: string) => (v.trim() === '' ? undefined : v)
@@ -67,7 +65,7 @@ export interface FieldInputProps {
   value: unknown
   onChange: (value: unknown) => void
   errors: FieldErrors
-  /** The whole document, for inputs that read other fields (seo() fallbacks). */
+  /** The whole document, for inputs that read other fields (a top-level seo()'s fallbacks). */
   doc?: Record<string, unknown>
   /** The document's path on the site, for the Google preview. */
   previewPath?: string
@@ -136,7 +134,7 @@ export function FieldInput(props: FieldInputProps) {
     return (
       <SeoInput
         field={field as SeoField}
-        path={path}
+        name={name}
         idPrefix={idPrefix}
         value={value}
         doc={doc ?? {}}

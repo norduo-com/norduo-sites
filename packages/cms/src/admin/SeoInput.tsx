@@ -1,22 +1,22 @@
+import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import { SEO_DESCRIPTION_MAX, type SeoField, seoMeta } from '../seo'
+import { SEO_DESCRIPTION_MAX, SEO_TITLE_MAX, type SeoField, seoMeta } from '../seo'
 import { useAdmin } from './context'
 import { ImageInput } from './ImageInput'
 import type { FieldErrors } from './inputs'
+import { inputClass } from './styles'
 
-const inputClass =
-  'rounded-lg border border-neutral-300 bg-white px-3 py-2 aria-invalid:border-red-600'
-
-const TITLE_MAX = 60
+type Part = 'keyword' | 'title' | 'description' | 'image'
 
 /**
- * The `seo()` field: keyword, title, description and share image, with a Google preview.
- * Empty title and description show their fallbacks as placeholders and in the preview.
+ * A top-level `seo()` field: keyword, title, description and share image, with a Google
+ * preview built by the same `seoMeta` as the site's `<head>`, so the two always agree.
+ * Empty title and description show their fallbacks as placeholders.
  */
 export function SeoInput({
   field,
-  path,
+  name,
   idPrefix,
   value,
   doc,
@@ -25,7 +25,8 @@ export function SeoInput({
   onChange,
 }: {
   field: SeoField
-  path: string
+  /** The field's name in the document; `seo()` is only used at the top level. */
+  name: string
   idPrefix: string
   value: unknown
   /** The whole document, for the fallbacks. */
@@ -38,41 +39,49 @@ export function SeoInput({
   const { t } = useTranslation('vefstjorn')
   const { config } = useAdmin()
   const own = (value ?? {}) as Record<string, unknown>
-  const fallback = seoMeta(field, { ...doc, [path]: undefined }, path)
-  const meta = seoMeta(field, doc, path)
-  const str = (k: string) => (typeof own[k] === 'string' ? own[k] : '')
+  const options = { name, siteName: config.site.name }
+  const meta = seoMeta(field, doc, options)
+  const fallback = seoMeta(field, { ...doc, [name]: undefined }, options)
+  const str = (k: Part) => (typeof own[k] === 'string' ? own[k] : '')
 
-  const set = (key: string, v: unknown) => {
+  const set = (key: Part, v: unknown) => {
     const next = { ...own, [key]: typeof v === 'string' && v.trim() === '' ? undefined : v }
     // Nothing filled in: leave the field out, so an optional seo() stays valid.
     onChange(Object.values(next).every((x) => x === undefined) ? undefined : next)
   }
 
-  const id = (k: string) => `${idPrefix}-${path}.${k}`
-  const errorOf = (k: string) => errors[`${path}.${k}`]
-  const a11y = (k: string, extra?: string) => {
+  const id = (k: Part) => `${idPrefix}-${name}.${k}`
+  const errorOf = (k: Part) => errors[`${name}.${k}`]
+  /** Props for a part's input: its id, invalid state and the notes that describe it. */
+  const describe = (k: Part) => {
     const error = errorOf(k)
-    const describedBy = [extra, error && `${id(k)}-error`].filter(Boolean).join(' ')
     return {
+      id: id(k),
       'aria-invalid': error ? true : undefined,
-      'aria-describedby': describedBy || undefined,
+      'aria-describedby': [`${id(k)}-note`, error && `${id(k)}-error`].filter(Boolean).join(' '),
     } as const
   }
-  const errorText = (k: string) => {
+
+  const row = (k: Part, note: string, control: ReactNode) => {
     const error = errorOf(k)
     return (
-      error && (
-        <p id={`${id(k)}-error`} className="text-sm text-red-700">
-          {t(error.key, { max: error.max, min: error.min })}
+      <div className="gap-1 flex flex-col">
+        <label htmlFor={id(k)} className="font-medium">
+          {t(`seo.${k}`)}
+        </label>
+        {control}
+        <p id={`${id(k)}-note`} className="text-sm text-neutral-500">
+          {note}
         </p>
-      )
+        {error && (
+          <p id={`${id(k)}-error`} className="text-sm text-red-700">
+            {t(error.key, { max: error.max, min: error.min })}
+          </p>
+        )}
+      </div>
     )
   }
-  const counter = (k: string, max: number) => (
-    <p id={`${id(k)}-count`} className="text-sm text-neutral-500">
-      {t('seo.count', { count: str(k).length, max })}
-    </p>
-  )
+  const count = (k: Part, max: number) => t('seo.count', { count: str(k).length, max })
 
   const host = config.site.url.replace(/^https?:\/\//, '').replace(/\/$/, '')
   const crumbs = [host, ...(previewPath ?? '').split('/').filter(Boolean)].join(' › ')
@@ -81,95 +90,74 @@ export function SeoInput({
     <fieldset className="gap-4 rounded-lg border-neutral-200 p-4 flex flex-col border">
       <legend className="px-1 font-medium">{t('seo.label')}</legend>
 
-      <div className="gap-1 flex flex-col">
-        <label htmlFor={id('keyword')} className="font-medium">
-          {t('seo.keyword')}
-        </label>
+      {row(
+        'keyword',
+        t('seo.keywordHelp'),
         <input
-          id={id('keyword')}
+          {...describe('keyword')}
           type="text"
           className={inputClass}
           value={str('keyword')}
-          {...a11y('keyword', `${id('keyword')}-help`)}
           onChange={(e) => {
             set('keyword', e.target.value)
           }}
-        />
-        <p id={`${id('keyword')}-help`} className="text-sm text-neutral-500">
-          {t('seo.keywordHelp')}
-        </p>
-        {errorText('keyword')}
-      </div>
+        />,
+      )}
 
-      <div className="gap-1 flex flex-col">
-        <label htmlFor={id('title')} className="font-medium">
-          {t('seo.title')}
-        </label>
+      {row(
+        'title',
+        count('title', SEO_TITLE_MAX),
         <input
-          id={id('title')}
+          {...describe('title')}
           type="text"
           className={inputClass}
           value={str('title')}
           placeholder={fallback.title ?? undefined}
-          {...a11y('title', `${id('title')}-count`)}
           onChange={(e) => {
             set('title', e.target.value)
           }}
-        />
-        {counter('title', TITLE_MAX)}
-        {errorText('title')}
-      </div>
+        />,
+      )}
 
-      <div className="gap-1 flex flex-col">
-        <label htmlFor={id('description')} className="font-medium">
-          {t('seo.description')}
-        </label>
+      {row(
+        'description',
+        count('description', SEO_DESCRIPTION_MAX),
         <textarea
-          id={id('description')}
+          {...describe('description')}
           rows={3}
           className={inputClass}
           value={str('description')}
           placeholder={fallback.description ?? undefined}
-          {...a11y('description', `${id('description')}-count`)}
           onChange={(e) => {
             set('description', e.target.value)
           }}
-        />
-        {counter('description', SEO_DESCRIPTION_MAX)}
-        {errorText('description')}
-      </div>
+        />,
+      )}
 
-      <div className="gap-1 flex flex-col">
-        <label htmlFor={id('image')} className="font-medium">
-          {t('seo.image')}
-        </label>
+      {row(
+        'image',
+        t('seo.imageHelp'),
         <ImageInput
           id={id('image')}
-          describedBy={`${id('image')}-help`}
+          describedBy={describe('image')['aria-describedby']}
           invalid={Boolean(errorOf('image'))}
           value={own.image}
           onChange={(v) => {
             set('image', v)
           }}
-        />
-        <p id={`${id('image')}-help`} className="text-sm text-neutral-500">
-          {t('seo.imageHelp')}
-        </p>
-        {errorText('image')}
-      </div>
+        />,
+      )}
 
-      <figure className="gap-1 flex flex-col">
-        <figcaption className="text-sm font-medium text-neutral-500">{t('seo.preview')}</figcaption>
-        <div
-          aria-label={t('seo.preview')}
-          role="group"
-          className="gap-1 bg-white p-4 shadow-sm rounded-lg border-neutral-200 flex flex-col border"
-        >
-          <p className="text-sm text-neutral-600">{crumbs}</p>
-          <p className="text-xl text-blue-800">{meta.title ?? t('seo.noTitle')}</p>
-          <p className="text-sm text-neutral-700">{meta.description ?? t('seo.noDescription')}</p>
-        </div>
-      </figure>
+      <div
+        role="group"
+        aria-label={t('seo.preview')}
+        className="gap-1 bg-white p-4 shadow-sm rounded-lg border-neutral-200 flex flex-col border"
+      >
+        <p className="text-sm font-medium text-neutral-500">{t('seo.preview')}</p>
+        <p className="text-sm text-neutral-600">{crumbs}</p>
+        <p className="text-xl text-blue-800">{meta.title ?? t('seo.noTitle')}</p>
+        <p className="text-sm text-neutral-700">{meta.description ?? t('seo.noDescription')}</p>
+      </div>
     </fieldset>
   )
 }

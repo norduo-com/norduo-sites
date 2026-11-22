@@ -79,6 +79,29 @@ describe('defineCms', () => {
     ).toThrow(/titel/)
   })
 
+  it('rejects an seo fallback the collection or singleton does not have', () => {
+    const site = {
+      id: 'x',
+      name: 'X',
+      url: 'https://x.is',
+      locales: ['is'],
+      defaultLocale: 'is',
+    } as const
+    expect(() =>
+      defineCms({
+        site,
+        collections: { projects: { fields: { title: text(), seo: seo({ titleFrom: 'titel' }) } } },
+      }),
+    ).toThrow(/titel/)
+    expect(() =>
+      defineCms({
+        site,
+        collections: {},
+        singletons: { settings: { fields: { seo: seo({ descriptionFrom: 'lead' }) } } },
+      }),
+    ).toThrow(/lead/)
+  })
+
   it('rejects a default locale that is not listed', () => {
     expect(() =>
       defineCms({

@@ -25,7 +25,13 @@ const header = () => ({
   lead: text({ i18n: true, multiline: true, max: 300 }),
 })
 
-const pageSeo = () => seo({ titleFrom: 'title', descriptionFrom: 'lead' })
+/** A page with the shared header and SEO; `route` is left out for the 404 page. */
+const page = <const B extends readonly string[]>(route: string | undefined, blocks: B) => ({
+  ...(route === undefined ? {} : { route }),
+  fields: header(),
+  seo: seo({ titleFrom: 'title', descriptionFrom: 'lead' }),
+  blocks,
+})
 
 /**
  * Berghald's content model. Vefstjórn builds its screens from this file;
@@ -127,13 +133,13 @@ export default defineCms({
     }),
   },
   pages: {
-    home: { route: '/', fields: header(), seo: pageSeo(), blocks: ['text', 'quoteForm'] },
-    services: { route: '/thjonusta', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    projects: { route: '/verkefni', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    about: { route: '/um-okkur', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    thankYou: { route: '/takk-fyrir', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    privacy: { route: '/personuvernd', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    cookies: { route: '/vafrakokur', fields: header(), seo: pageSeo(), blocks: ['text'] },
-    notFound: { fields: header(), seo: pageSeo(), blocks: ['text'] },
+    home: page('/', ['text', 'quoteForm']),
+    services: page('/thjonusta', ['text']),
+    projects: page('/verkefni', ['text']),
+    about: page('/um-okkur', ['text']),
+    thankYou: page('/takk-fyrir', ['text']),
+    privacy: page('/personuvernd', ['text']),
+    cookies: page('/vafrakokur', ['text']),
+    notFound: page(undefined, ['text']),
   },
 })

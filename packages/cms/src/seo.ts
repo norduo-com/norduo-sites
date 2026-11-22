@@ -1,16 +1,17 @@
-import { group, image, type ImageValue, imageValue, text } from './fields'
+import { group, image, type ImageValue, imageValue, type Infer, text } from './fields'
 import type { RichTextValue } from './richtext'
 
 /** Sub-fields of `seo()`. Their labels are Vefstjórn's own (`vefstjorn` namespace). */
+/** Search engines cut longer titles and descriptions; fallbacks are cut to the same length. */
+export const SEO_TITLE_MAX = 60
+export const SEO_DESCRIPTION_MAX = 160
+
 const seoFields = {
   keyword: text({ i18n: true }),
-  title: text({ i18n: true, max: 60 }),
-  description: text({ i18n: true, max: 160, multiline: true }),
+  title: text({ i18n: true, max: SEO_TITLE_MAX }),
+  description: text({ i18n: true, max: SEO_DESCRIPTION_MAX, multiline: true }),
   image: image(),
 }
-
-/** Search engines cut longer descriptions, and fallbacks are cut to the same length. */
-export const SEO_DESCRIPTION_MAX = 160
 
 /**
  * Search and sharing: a keyword (shown in the Google preview, never output as a meta tag),
@@ -30,6 +31,8 @@ export function seo<const T extends string, const D extends string>(
 }
 
 export type SeoField = ReturnType<typeof seo>
+/** A stored `seo()` value. */
+export type SeoValue = Infer<typeof seoFields>
 
 export interface SeoMeta {
   title: string | null
@@ -61,21 +64,32 @@ function clip(value: string, max: number): string {
 
 const filled = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
 
+/** A fallback title with the site name after it, e.g. "Þjónusta – Berghald", within 60. */
+function fallbackTitle(title: string | null, siteName: string | undefined): string | null {
+  if (!siteName) return title && clip(title, SEO_TITLE_MAX)
+  if (!title) return siteName
+  const suffix = ` – ${siteName}`
+  return `${clip(title, SEO_TITLE_MAX - suffix.length)}${suffix}`
+}
+
 /**
- * What goes in the page's `<head>`: the `seo()` value with its fallbacks applied.
- * `data` is the whole document the field belongs to, with the value under `name`.
+ * What goes in the page's `<head>` and Vefstjórn's Google preview: the `seo()` value with
+ * its fallbacks applied. `data` is the whole document; the value is the top-level field
+ * `name`. With `siteName`, a fallback title gets the site name after it (an editor's own
+ * title is used as written), and a document with no title at all gets the site name.
  */
 export function seoMeta(
   field: Pick<SeoField, 'titleFrom' | 'descriptionFrom'>,
   data: Record<string, unknown>,
-  name = 'seo',
+  options: { name?: string; siteName?: string } = {},
 ): SeoMeta {
-  const own = isRecord(data[name]) ? data[name] : {}
+  const value = data[options.name ?? 'seo']
+  const own = isRecord(value) ? value : {}
   const fallback = (from: string | undefined) => (from ? plainText(data[from]) || null : null)
   const description = filled(own.description) ?? fallback(field.descriptionFrom)
   const image = imageValue.safeParse(own.image)
   return {
-    title: filled(own.title) ?? fallback(field.titleFrom),
+    title: filled(own.title) ?? fallbackTitle(fallback(field.titleFrom), options.siteName),
     description: description && clip(description, SEO_DESCRIPTION_MAX),
     keyword: filled(own.keyword),
     image: image.success ? image.data : null,

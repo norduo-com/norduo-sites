@@ -40,6 +40,21 @@ describe('seo()', () => {
     })
   })
 
+  it('adds the site name to a fallback title, never to its own, within 60 characters', () => {
+    const site = { siteName: 'Berghald' }
+    expect(seoMeta(field, { title: 'Þjónusta' }, site).title).toBe('Þjónusta – Berghald')
+    expect(seoMeta(field, { seo: { title: 'Garðar' } }, site).title).toBe('Garðar')
+    const long = seoMeta(field, { title: 'Hellulögn '.repeat(10) }, site).title
+    expect(long?.length).toBeLessThanOrEqual(60)
+    expect(long?.endsWith('Hellulögn… – Berghald')).toBe(true)
+    expect(seoMeta(field, {}, site).title).toBe('Berghald')
+  })
+
+  it('cuts a fallback title to 60 characters without a site name', () => {
+    const title = seoMeta(field, { title: 'Hellulögn '.repeat(10) }).title
+    expect(title?.length).toBeLessThanOrEqual(60)
+  })
+
   it('falls back to rich text as plain text, cut at a word to 160 characters', () => {
     const long = `${'Hellulögn '.repeat(20)}endir`
     const data = {

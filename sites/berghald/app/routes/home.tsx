@@ -29,11 +29,10 @@ export async function loader({ context, request }: Route.LoaderArgs) {
     data,
     photo: photo ? (media.get(photo.mediaId) ?? null) : null,
   }))
-  const head = headTags(seoMeta(cms.pages.home.seo, page ?? {}), {
-    siteName: cms.site.name,
-    origin: new URL(request.url).origin,
-    ownTitle: Boolean(page?.seo?.title?.trim()),
-  })
+  const head = headTags(
+    seoMeta(cms.pages.home.seo, page ?? {}, { siteName: cms.site.name }),
+    new URL(request.url).origin,
+  )
   // Only the header goes to the browser, not the whole page.
   const header = page && { eyebrow: page.eyebrow, heading: page.heading, lead: page.lead }
   return { head, header, equipment }
@@ -46,10 +45,8 @@ export default function Home({ loaderData }: Route.ComponentProps) {
     <main className="flex flex-col gap-s p-g">
       {/* Until the header is filled in in Vefstjórn, the prototype's hero text stands in. */}
       <section className="bg-neutral-900 text-white rounded-box p-in">
-        <p className="text-sm tracking-widest uppercase">
-          {header?.eyebrow ?? 'Lóðafrágangur · Hellulagnir · Hleðslur'}
-        </p>
-        <h1 className="mt-4 text-5xl">{header?.heading ?? 'Við mótum lóðina þína'}</h1>
+        <p className="text-sm tracking-widest uppercase">{header?.eyebrow ?? t('home.eyebrow')}</p>
+        <h1 className="mt-4 text-5xl">{header?.heading ?? t('home.heading')}</h1>
         {header?.lead && <p className="mt-4 text-lg max-w-prose">{header.lead}</p>}
       </section>
       <CallButton phone="691 8944" />
