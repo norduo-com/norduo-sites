@@ -37,3 +37,10 @@ access "https://pr-<n>-berghald-preview.kh-krimper.workers.dev/api/cms/admin/con
 A 302 to `cloudflareaccess.com` means the token isn't allowed on that Access app. The token can save content, like an editor: save only on a preview.
 
 **Setup (once, by the user):** Zero Trust → Access → Service credentials → Service Tokens → create `agent-preview`. Then, on each Access app it should open (the preview app, and the live admin app only if wanted), add a policy with action **Service Auth** and the rule **Service Token = agent-preview**. Put the Client ID and Secret in `.env.access` as `CF_ACCESS_CLIENT_ID=` and `CF_ACCESS_CLIENT_SECRET=`. The Worker accepts the token's JWT as it is (`packages/cms/src/server/access.ts` needs no email).
+
+## Sentry
+
+- **Check the Worker reports errors:** open `/api/cms/admin/debug/error` while logged in through Access. It throws on purpose; the event shows up in Sentry tagged with the environment (`production` or `preview`).
+- **Check Vefstjórn reports errors:** on any `/vefstjorn` screen, run `setTimeout(() => { throw new Error('Vefstjórn test') })` in the browser console. (An error thrown straight in the console isn't reported.)
+- **Projects:** `berghald-server` (Worker) and `berghald-vefstjorn` (browser) in the `norduo-au` org, EU region, IP storage off.
+- **DSNs:** `npx wrangler secret put SENTRY_DSN` (Worker project) and `SENTRY_ADMIN_DSN` (Vefstjórn project); add `--env preview` for the PR previews.

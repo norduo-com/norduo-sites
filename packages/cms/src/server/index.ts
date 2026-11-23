@@ -357,6 +357,11 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     await next()
   })
 
+  // Throws on purpose, to check that the site's error reporting sees Worker errors.
+  app.get('/admin/debug/error', () => {
+    throw new Error('Vefstjórn test error (GET /admin/debug/error)')
+  })
+
   app.get('/admin/config', (c) =>
     c.json({
       site: config.site,
