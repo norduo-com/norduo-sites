@@ -92,12 +92,15 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
 - **Myndasafn (media library):** all images in one place, with filters (by where they're used, unused, without alt text), search, upload, and "Velja úr myndasafni" (pick from library) in the project editor.
-  - Images used by a service, team member or piece of equipment can't be deleted until they're replaced there.
-  - Deleting an image used in projects removes it from those projects too, after a confirmation.
+  - The rules come from field types, not site names. An image used in an `image()` field anywhere (blocks and `seo()` included) can't be deleted until it's replaced there; the API refuses with 409.
+  - An image used only in `gallery()` fields is removed from them, in every locale, after a confirmation (`DELETE /admin/media/:id?galleries=remove`).
+  - The usage filters read `media_refs`. Only a delete reads the documents it names, to tell `image()` uses from gallery uses.
+  - Search and multi-upload are in; "Velja úr myndasafni" isn't built yet.
 
 ## 6. Languages
 
 - **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
+- **Editing other locales:** Vefstjórn has no language switcher yet; until #31, a non-default locale is read and saved only through the admin API (`?locale=en` on reads, `locale` in the PUT body), and the site has no `/en` routes until #32.
 - **Namespaces:**
   - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
   - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).
