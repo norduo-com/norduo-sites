@@ -38,7 +38,7 @@ pnpm --filter berghald db:migrate:preview # the PR-preview D1 (CI also runs it)
 pnpm --filter @norduo/cms db:generate   # after editing src/db/schema.ts
 ```
 
-Run `pnpm check` before calling work done. Logs, R2 and D1 on the live site: `docs/ops.md`. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
+Run `pnpm check` before calling work done, and the `code-review` skill against `main` before opening a PR. Logs, R2, D1 and the PR preview URL: `docs/ops.md`. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
 
 ## Stack
 
@@ -55,7 +55,7 @@ These are planned but not installed yet; add each with the feature that needs it
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `norduo-com/norduo-sites`, via the `gh` CLI. The repo is public: tickets hold build decisions only, never client data. See `docs/agents/issue-tracker.md`, also before opening a PR.
+Issues live in GitHub Issues on `norduo-com/norduo-sites`, via the `gh` CLI. The repo is public: tickets hold build decisions only, never client data. Read issues with the `--json` command in `docs/agents/issue-tracker.md` (`gh issue view --comments` prints nothing here), and follow it before opening a PR.
 
 ### Triage labels
 
