@@ -2,6 +2,11 @@
 
 Checked commands for looking at a deployed site. Run them from `sites/<name>` (wrangler reads its `wrangler.jsonc`). Names below are Berghald's; the PR preview uses `berghald-preview` and `berghald-preview-media`.
 
+## PR preview
+
+- **URL of a PR's preview**, from its branch (quote the URL: zsh treats `?` as a glob):
+  `gh api "repos/norduo-com/norduo-sites/deployments?ref=<branch>" --jq '.[0].statuses_url' | xargs gh api --jq '.[0].environment_url'`
+
 ## Logs
 
 - **Why a request failed, after the fact:** Cloudflare dashboard → Workers & Pages → `berghald` → Logs. Observability is on, so every `console.warn` is kept, e.g. `media upload refused { route, error, status }`.
