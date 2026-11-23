@@ -13,7 +13,7 @@
   // Override locally in .dev.vars (see .dev.vars.example).
   "vars": {
     "ENVIRONMENT": "production",
-    // Tags Sentry events. The DSN is a secret: `wrangler secret put SENTRY_DSN`.
+    // Tags Sentry events. The DSNs are secrets: SENTRY_DSN (Worker), SENTRY_ADMIN_DSN (Vefstjórn).
     "SENTRY_ENVIRONMENT": "production",
     // Cloudflare Access, checked on /api/cms/admin. Not secrets: the AUD tag only names the app.
     "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
@@ -30,6 +30,8 @@
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
   // Photo widths, blurred previews and JPEG → WebP masters. Local dev uses Sharp.
   "images": { "binding": "IMAGES" },
+  // The deployed version's id, used as the Sentry release.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Nightly backup of D1 to R2 (03:00 UTC).
   "triggers": { "crons": ["0 3 * * *"] },
   "env": {
@@ -58,6 +60,7 @@
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
       "images": { "binding": "IMAGES" },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "triggers": { "crons": [] },
     },
   },

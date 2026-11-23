@@ -27,4 +27,5 @@ Checked commands for looking at a deployed site. Run them from `sites/<name>` (w
 
 - **Check the Worker reports errors:** open `/api/cms/admin/debug/error` while logged in through Access. It throws on purpose; the event shows up in Sentry tagged with the environment (`production` or `preview`).
 - **Check Vefstjórn reports errors:** on any `/vefstjorn` screen, run `setTimeout(() => { throw new Error('Vefstjórn test') })` in the browser console. (An error thrown straight in the console isn't reported.)
-- **DSN:** `npx wrangler secret put SENTRY_DSN` (add `--env preview` for the PR previews).
+- **Projects:** `berghald-server` (Worker) and `berghald-vefstjorn` (browser) in the `norduo-au` org, EU region, IP storage off.
+- **DSNs:** `npx wrangler secret put SENTRY_DSN` (Worker project) and `SENTRY_ADMIN_DSN` (Vefstjórn project); add `--env preview` for the PR previews.

@@ -16,7 +16,13 @@ export function meta(_: Route.MetaArgs) {
 /** The DSN is public by design (it only lets a client send events), so the browser gets it. */
 export function loader({ context }: Route.LoaderArgs) {
   const { env } = context.get(cloudflare)
-  return { sentry: { dsn: env.SENTRY_DSN ?? '', environment: env.SENTRY_ENVIRONMENT } }
+  return {
+    sentry: {
+      dsn: env.SENTRY_ADMIN_DSN ?? '',
+      environment: env.SENTRY_ENVIRONMENT,
+      release: env.CF_VERSION_METADATA.id,
+    },
+  }
 }
 
 // Moving between Vefstjórn screens needn't refetch the Sentry settings.
@@ -27,10 +33,10 @@ type SentrySettings = ReturnType<typeof loader>['sentry']
 let sentry: Promise<typeof SentryReact | null> | undefined
 
 /** Sentry for Vefstjórn only, loaded after hydration so the public site never ships it. */
-function startSentry({ dsn, environment }: SentrySettings) {
+function startSentry({ dsn, environment, release }: SentrySettings) {
   sentry ??= dsn
     ? import('@sentry/react').then((Sentry) => {
-        Sentry.init(sentryOptions(dsn, environment))
+        Sentry.init(sentryOptions(dsn, environment, release))
         return Sentry
       })
     : Promise.resolve(null)

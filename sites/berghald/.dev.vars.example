@@ -1,1 +1,5 @@
 ENVIRONMENT=development
+SENTRY_ENVIRONMENT=development
+# Sentry is off unless these are set (DSNs from the berghald-server and berghald-vefstjorn projects).
+# SENTRY_DSN=
+# SENTRY_ADMIN_DSN=

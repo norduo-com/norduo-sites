@@ -73,7 +73,7 @@ npx wrangler r2 bucket create berghald-media
 
 Then put Cloudflare Access in front of `berghald.is/vefstjorn*` and `berghald.is/api/cms/admin*`.
 
-Sentry: create a project, then `npx wrangler secret put SENTRY_DSN` (and again with `--env preview`). In the project's settings, turn on "Prevent Storing of IP Addresses". Without the secret, Sentry stays off.
+Sentry: create a Worker project and a Vefstjórn (React) project, then `npx wrangler secret put SENTRY_DSN` with the Worker DSN and `SENTRY_ADMIN_DSN` with the Vefstjórn DSN (and both again with `--env preview`). In the project's settings, turn on "Prevent Storing of IP Addresses". Without the secret, Sentry stays off.
 
 ## Adding a new site
 

@@ -44,7 +44,7 @@ app.all('*', (c) =>
 )
 
 export default Sentry.withSentry(
-  (env: Env) => sentryOptions(env.SENTRY_DSN, env.SENTRY_ENVIRONMENT),
+  (env: Env) => sentryOptions(env.SENTRY_DSN, env.SENTRY_ENVIRONMENT, env.CF_VERSION_METADATA.id),
   {
     fetch: app.fetch,
     scheduled(_controller, env, ctx) {

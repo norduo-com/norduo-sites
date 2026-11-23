@@ -40,11 +40,17 @@ export function scrubEvent<E extends ScrubbableEvent>(event: E): E {
  * Sentry 11 replaced `sendDefaultPii` with `dataCollection`, whose defaults collect everything,
  * so each category is turned off here; `scrubEvent` is the backstop.
  */
-export function sentryOptions(dsn: string | undefined, environment: string | undefined) {
+export function sentryOptions(
+  dsn: string | undefined,
+  environment: string | undefined,
+  /** The Worker version id, so an issue points at the deploy that caused it. */
+  release: string | undefined,
+) {
   return {
     dsn: dsn === '' ? undefined : dsn,
     enabled: Boolean(dsn),
     environment: environment ?? 'development',
+    release,
     dataCollection: {
       userInfo: false,
       cookies: false,
