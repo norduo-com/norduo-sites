@@ -1,5 +1,8 @@
 import { expect, test } from '@playwright/test'
 
+// Two tests edit the same home page, so the file runs one test at a time.
+test.describe.configure({ mode: 'serial' })
+
 test('Síður og textar lists the pages and the footer', async ({ page }) => {
   await page.goto('/vefstjorn')
   const nav = page.getByRole('navigation', { name: 'Vefstjórn' })
@@ -23,8 +26,9 @@ test('the home page header and SEO save and go straight to the public <head>', a
   await page.goto('/vefstjorn/pages')
   await page.getByRole('link', { name: /Forsíða/ }).click()
   await page.getByRole('textbox', { name: 'Heiti', exact: true }).fill('Forsíða')
-  await page.getByLabel('Fyrirsögn').fill('Við mótum lóðina þína')
-  await page.getByLabel('Inngangstexti').fill(lead)
+  // The header comes first; blocks below it may have fields with the same labels.
+  await page.getByLabel('Fyrirsögn').first().fill('Við mótum lóðina þína')
+  await page.getByLabel('Inngangstexti').first().fill(lead)
   await page.getByRole('textbox', { name: 'Titill', exact: true }).fill(seoTitle)
   await page.getByRole('textbox', { name: 'Lýsing', exact: true }).fill('')
 
@@ -43,4 +47,62 @@ test('the home page header and SEO save and go straight to the public <head>', a
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', seoTitle)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Við mótum lóðina þína')
   await expect(page.getByText(lead)).toBeVisible()
+})
+
+test('home page blocks are added, reordered and removed, and the public page follows', async ({
+  page,
+}, testInfo) => {
+  test.skip(testInfo.project.name !== 'desktop', 'edits the shared home page')
+  const id = crypto.randomUUID().slice(0, 8)
+  const textHeading = `Um garðana ${id}`
+  const formHeading = `Fáðu tilboð ${id}`
+  const save = async () => {
+    await page.getByRole('button', { name: 'Vista' }).click()
+    await expect(page.getByRole('status')).toHaveText('Vistað')
+  }
+  const addBlock = async (type: string) => {
+    await page.getByRole('combobox', { name: 'Tegund hluta' }).selectOption({ label: type })
+    await page.getByRole('button', { name: 'Bæta við hluta' }).click()
+  }
+
+  await page.goto('/vefstjorn/pages/home')
+  await page.getByRole('textbox', { name: 'Heiti', exact: true }).fill('Forsíða')
+  // Start from an empty body.
+  const removeButtons = page.getByRole('button', { name: /^Fjarlægja: / })
+  await expect(page.getByRole('button', { name: 'Bæta við hluta' })).toBeVisible()
+  while ((await removeButtons.count()) > 0) await removeButtons.first().click()
+  await expect(page.getByText('Engir hlutar á síðunni enn.')).toBeVisible()
+
+  await addBlock('Texti')
+  const text = page.getByRole('region', { name: '1. Texti' })
+  await text.getByLabel('Fyrirsögn').fill(textHeading)
+  await text.getByRole('textbox', { name: 'Texti' }).fill('Við hönnum og byggjum garða.')
+  await addBlock('Tilboðsform')
+  await page
+    .getByRole('region', { name: '2. Tilboðsform' })
+    .getByLabel('Fyrirsögn')
+    .fill(formHeading)
+
+  // The form moves above the text; focus stays on the moved block and the text keeps its content.
+  await page.getByRole('button', { name: 'Færa upp: 2. Tilboðsform' }).click()
+  await expect(page.getByRole('button', { name: 'Færa niður: 1. Tilboðsform' })).toBeFocused()
+  const moved = page.getByRole('region', { name: '2. Texti' })
+  await expect(moved.getByLabel('Fyrirsögn')).toHaveValue(textHeading)
+  await expect(moved.getByRole('textbox', { name: 'Texti' })).toHaveText(
+    'Við hönnum og byggjum garða.',
+  )
+  await save()
+
+  await page.goto('/')
+  const headings = page.locator('[data-block] h2')
+  await expect(headings).toHaveText([formHeading, textHeading])
+  await expect(page.getByText('Við hönnum og byggjum garða.')).toBeVisible()
+
+  await page.goto('/vefstjorn/pages/home')
+  await page.getByRole('button', { name: 'Fjarlægja: 2. Texti' }).click()
+  await expect(page.getByRole('region', { name: /Texti$/ })).toHaveCount(0)
+  await save()
+
+  await page.goto('/')
+  await expect(headings).toHaveText([formHeading])
 })

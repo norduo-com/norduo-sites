@@ -41,7 +41,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
    - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
-**Pages = a fixed header + SEO, then an ordered list of blocks.** A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
+**Pages = a fixed header + SEO, then an ordered list of blocks.** In the page's editor, editors add blocks from the page's allowed types, remove them and move them up or down; nothing is stored until the page is saved. Blocks that list a collection or read settings store only their own text (eyebrow, heading, lead, button); their items come from the collection. A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
 
 **Storage:**
 

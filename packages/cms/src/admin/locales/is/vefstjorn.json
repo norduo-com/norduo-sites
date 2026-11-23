@@ -17,7 +17,19 @@
     "saving": "Vistar…",
     "delete": "Eyða",
     "confirmDelete": "Já, eyða",
-    "cancel": "Hætta við"
+    "cancel": "Hætta við",
+    "remove": "Fjarlægja"
+  },
+  "blocks": {
+    "label": "Efni síðunnar",
+    "empty": "Engir hlutar á síðunni enn.",
+    "position": "{{n}}. {{label}}",
+    "moveUp": "Færa upp: {{block}}",
+    "moveDown": "Færa niður: {{block}}",
+    "remove": "Fjarlægja: {{block}}",
+    "type": "Tegund hluta",
+    "add": "Bæta við hluta",
+    "notAllowed": "Þessi hluti er ekki leyfður á síðunni. Fjarlægðu hann áður en þú vistar."
   },
   "list": {
     "loading": "Hleður…",
