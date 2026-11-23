@@ -1,4 +1,4 @@
-import { createCmsApi, createImageRoute } from '@norduo/cms/server'
+import { createCmsApi, createImageRoute, createVideoRoute } from '@norduo/cms/server'
 import { Hono } from 'hono'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 
@@ -24,6 +24,9 @@ app.route(
 
 // Photos at the fixed widths, made from the master and cached at the edge.
 app.route('/img', createImageRoute())
+
+// Gallery videos as uploaded, with byte ranges for seeking.
+app.route('/video', createVideoRoute())
 
 // Public pages: rendered on request, cached at the edge until content changes.
 app.all('*', (c) =>

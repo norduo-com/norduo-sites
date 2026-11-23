@@ -10,8 +10,10 @@ import { mediaIdsOf } from '../media'
 import { slugify, uniqueSlug } from '../slug'
 import { verifyAccessJwt } from './access'
 import { masterFromRaw, type MediaFailure, putRaw, storeBrowserMaster } from './media'
+import { completeVideo, presignVideo, putLocalVideo } from './video'
 
 export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
+export { createVideoRoute, type VideoTicket } from './video'
 
 export interface CmsBindings {
   DB: D1Database
@@ -24,6 +26,12 @@ export interface CmsBindings {
   ACCESS_TEAM_DOMAIN?: string
   /** AUD tag of the site's Access application. */
   ACCESS_AUD?: string
+  /** Name of the bucket behind `MEDIA`: videos are PUT to it through R2's S3 API. */
+  R2_BUCKET?: string
+  /** Secrets for presigned video uploads: the account and a token scoped to the bucket. */
+  R2_ACCOUNT_ID?: string
+  R2_ACCESS_KEY_ID?: string
+  R2_SECRET_ACCESS_KEY?: string
 }
 
 export interface CmsHooks {
@@ -541,6 +549,38 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   app.post('/admin/media/raw/:id', async (c) => {
     const result = await masterFromRaw(c.env, c.req.param('id'))
     if ('status' in result) return refused(c, 'rawMaster', result)
+    return c.json(result.media, result.created ? 201 : 200)
+  })
+
+  // Videos: a presigned URL first, the browser PUTs the MP4 straight to R2, then the row.
+  app.post('/admin/media/video', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { size?: unknown; type?: unknown } | null
+    const input = { size: body?.size, type: body?.type }
+    const result = await presignVideo(
+      c.env,
+      input,
+      (id, size) => `${c.req.path}/${id}/local?size=${String(size)}`,
+    )
+    if ('status' in result) return refused(c, 'videoUrl', result, input)
+    return c.json(result, 201)
+  })
+
+  // Stands in for R2 when there is no S3 token (local dev and tests only).
+  app.put('/admin/media/video/:id/local', async (c) => {
+    const result = await putLocalVideo(
+      c.env,
+      c.req.raw,
+      c.req.param('id'),
+      Number(c.req.query('size')),
+    )
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result)
+  })
+
+  app.post('/admin/media/video/:id', async (c) => {
+    const body = ((await c.req.json().catch(() => null)) ?? {}) as Record<string, unknown>
+    const result = await completeVideo(c.env, c.req.param('id'), body)
+    if ('status' in result) return refused(c, 'video', result)
     return c.json(result.media, result.created ? 201 : 200)
   })
 

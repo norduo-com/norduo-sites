@@ -16,6 +16,9 @@
     // Cloudflare Access, checked on /api/cms/admin. Not secrets: the AUD tag only names the app.
     "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
     "ACCESS_AUD": "bb9203f65bfe1cc17339ea4400a880c9ba18bd877b018573a7753229397950b1",
+    // Videos are PUT straight to this bucket with a presigned URL. The S3 token and account
+    // are secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (docs/ops.md).
+    "R2_BUCKET": "berghald-media",
   },
   "d1_databases": [
     {
@@ -44,6 +47,7 @@
         "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
         // AUD of the Access app over the whole preview Worker (all traffic).
         "ACCESS_AUD": "94cccdfbe0601a1fc30271c13e2de51982572c4cbe407341c9b65d0350b3e6f7",
+        "R2_BUCKET": "berghald-preview-media",
       },
       "d1_databases": [
         {

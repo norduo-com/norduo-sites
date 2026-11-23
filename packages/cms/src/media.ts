@@ -40,6 +40,9 @@ export const imageUrl = (id: string, width: ImageWidth) => `/img/${String(width)
 export const imageSrcSet = (id: string) =>
   IMAGE_WIDTHS.map((w) => `${imageUrl(id, w)} ${String(w)}w`).join(', ')
 
+/** An MP4 from a gallery, served as it is (with byte ranges) by the site's `/video` route. */
+export const videoUrl = (id: string) => `/video/${id}.mp4`
+
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -55,7 +58,11 @@ function collect(field: Field, value: unknown, out: Set<string>) {
       for (const id of idOf(value)) out.add(id)
       break
     case 'gallery':
-      for (const item of list) for (const id of idOf(item)) out.add(id)
+      // A video's own id and its poster's; a YouTube/Vimeo link has neither.
+      for (const item of list) {
+        for (const id of idOf(item)) out.add(id)
+        if (isRecord(item)) for (const id of idOf(item.poster)) out.add(id)
+      }
       break
     case 'group':
     case 'seo':
