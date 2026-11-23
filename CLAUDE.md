@@ -55,7 +55,7 @@ These are planned but not installed yet; add each with the feature that needs it
 
 ### Issue tracker
 
-Issues live in GitHub Issues on `norduo-com/norduo-sites`, via the `gh` CLI. The repo is public: tickets hold build decisions only, never client data. See `docs/agents/issue-tracker.md`.
+Issues live in GitHub Issues on `norduo-com/norduo-sites`, via the `gh` CLI. The repo is public: tickets hold build decisions only, never client data. See `docs/agents/issue-tracker.md`, also before opening a PR.
 
 ### Triage labels
 
