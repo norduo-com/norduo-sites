@@ -14,15 +14,16 @@
     "test:e2e": "playwright test",
     "db:migrate:local": "wrangler d1 migrations apply berghald --local",
     "db:migrate:remote": "wrangler d1 migrations apply berghald --remote",
-    "deploy": "wrangler d1 migrations apply berghald --remote && wrangler deploy",
+    "deploy": "wrangler d1 migrations apply berghald --remote && ./scripts/sourcemaps.sh && wrangler deploy",
     "db:migrate:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview",
-    "deploy:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview && wrangler versions upload --preview-alias \"$PREVIEW_ALIAS\" --message \"$PREVIEW_ALIAS\""
+    "deploy:preview": "wrangler d1 migrations apply berghald-preview --remote --env preview && ./scripts/sourcemaps.sh && wrangler versions upload --preview-alias \"$PREVIEW_ALIAS\" --message \"$PREVIEW_ALIAS\""
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "^1.69.1",
     "@norduo/config": "workspace:*",
     "@playwright/test": "^1.65.1",
     "@react-router/dev": "^8.5.1",
+    "@sentry/cli": "3.8.2",
     "@tailwindcss/vite": "^4.3.5",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^22.20.5",
@@ -39,6 +40,8 @@
   "dependencies": {
     "@norduo/cms": "workspace:*",
     "@norduo/ui": "workspace:*",
+    "@sentry/cloudflare": "11.16.0",
+    "@sentry/react": "11.16.0",
     "hono": "^4.13.19",
     "i18next": "27.2.2",
     "isbot": "^5",

@@ -18,7 +18,8 @@
     "delete": "Eyða",
     "confirmDelete": "Já, eyða",
     "cancel": "Hætta við",
-    "remove": "Fjarlægja"
+    "remove": "Fjarlægja",
+    "close": "Loka"
   },
   "blocks": {
     "label": "Efni síðunnar",
@@ -30,6 +31,21 @@
     "type": "Tegund hluta",
     "add": "Bæta við hluta",
     "notAllowed": "Þessi hluti er ekki leyfður á síðunni. Fjarlægðu hann áður en þú vistar."
+  },
+  "media": {
+    "upload": "Hlaða upp myndum",
+    "filter": "Sýna",
+    "all": "Allar myndir",
+    "unused": "Ónotaðar",
+    "noAlt": "Án lýsingar",
+    "search": "Leita",
+    "empty": "Engar myndir hér.",
+    "usedIn": "Notuð í: {{list}}",
+    "alt": "Lýsing (fyrir skjálesara og leitarvélar)",
+    "saveAlt": "Vista lýsingu",
+    "blocked": "Ekki er hægt að eyða myndinni meðan hún er notuð hér. Skiptu henni út þar fyrst:",
+    "confirmGalleries": "Myndin verður tekin úr myndaröðum á þessum stöðum. Viltu eyða henni?",
+    "confirmDelete": "Viltu eyða þessari mynd? Það er ekki hægt að afturkalla."
   },
   "list": {
     "loading": "Hleður…",

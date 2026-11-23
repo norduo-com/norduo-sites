@@ -92,12 +92,15 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
 - **Myndasafn (media library):** all images in one place, with filters (by where they're used, unused, without alt text), search, upload, and "Velja úr myndasafni" (pick from library) in the project editor.
-  - Images used by a service, team member or piece of equipment can't be deleted until they're replaced there.
-  - Deleting an image used in projects removes it from those projects too, after a confirmation.
+  - The rules come from field types, not site names. An image used in an `image()` field anywhere (blocks and `seo()` included) can't be deleted until it's replaced there; the API refuses with 409.
+  - An image used only in `gallery()` fields is removed from them, in every locale, after a confirmation (`DELETE /admin/media/:id?galleries=remove`).
+  - The usage filters read `media_refs`. Only a delete reads the documents it names, to tell `image()` uses from gallery uses.
+  - Search and multi-upload are in; "Velja úr myndasafni" isn't built yet.
 
 ## 6. Languages
 
 - **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
+- **Editing other locales:** Vefstjórn has no language switcher yet; until #31, a non-default locale is read and saved only through the admin API (`?locale=en` on reads, `locale` in the PUT body), and the site has no `/en` routes until #32.
 - **Namespaces:**
   - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
   - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).
@@ -153,7 +156,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 - Turborepo's `--affected` means only the changed parts get linted, tested and built.
 - Changes to `*.md` files only run the Prettier check: lint, typecheck, test, build, e2e, preview and deploy are skipped.
-- The pnpm store, the Turborepo cache and Playwright's Chromium and WebKit are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
+- The pnpm store and the Turborepo cache are cached between runs. The e2e job runs in the Playwright image (`mcr.microsoft.com/playwright`), which already has Chromium, WebKit and their system libraries; its tag must match `@playwright/test`, and a CI step fails if it doesn't. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
 - A change in `sites/berghald` runs only Berghald's tests.
 - A change in `packages/cms` (or `ui`/`config`) runs the CMS tests and the tests of every site that depends on it.
 - Deploys go per site via Wrangler on push to `main` (`turbo run deploy --affected`).
@@ -161,8 +164,12 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 11. Monitoring & analytics
 
 - **Sentry (free tier)**, with the focus on Vefstjórn:
-  - React SDK in the admin UI
-  - Cloudflare SDK in the Hono API, to catch failed saves and uploads
+  - React SDK in the admin UI only, loaded after hydration, so the public site never ships it
+  - Cloudflare SDK around the whole Worker: Hono's `onError`, React Router's `handleError` and the nightly backup
+  - No personal data: Sentry 11's `dataCollection` turns off user info, cookies, bodies, query strings and all but three headers, and `beforeSend` strips them again (`app/sentry.ts`)
+  - One Sentry project per platform: the Worker's DSN is the `SENTRY_DSN` secret, Vefstjórn's `SENTRY_ADMIN_DSN`. Without them Sentry is off (local dev, e2e). `SENTRY_ENVIRONMENT` tags production vs preview, and the Worker version id is the release
+  - No tracing: on Workers Free every span costs CPU from the 10 ms budget
+  - Source maps: every build makes them; before each deploy `scripts/sourcemaps.sh` injects debug IDs, uploads them to both projects (`SENTRY_AUTH_TOKEN`, a GitHub secret in `production` and `preview`) and deletes every `.map`, so none is ever served
 - **Uptime check** on berghald.is
 - **Google Analytics**, since ads may run later:
   - Wired through the cookie bar with **Google Consent Mode v2**, which is required for ads in the EU/EEA

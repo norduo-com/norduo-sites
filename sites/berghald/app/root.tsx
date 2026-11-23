@@ -1,10 +1,11 @@
 import './app.css'
 
 import type { ReactNode } from 'react'
-import { I18nextProvider, useTranslation } from 'react-i18next'
-import { isRouteErrorResponse, Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
+import { I18nextProvider } from 'react-i18next'
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from 'react-router'
 
 import type { Route } from './+types/root'
+import { ErrorPage } from './components/ErrorPage'
 import { i18n } from './i18n'
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -30,14 +31,5 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  const { t } = useTranslation('site')
-  const notFound = isRouteErrorResponse(error) && error.status === 404
-  return (
-    <main className="p-g">
-      <h1 className="text-3xl">{notFound ? t('errors.notFound') : t('errors.generic')}</h1>
-      <p>
-        <a href="/">{t('errors.home')}</a>
-      </p>
-    </main>
-  )
+  return <ErrorPage error={error} />
 }
