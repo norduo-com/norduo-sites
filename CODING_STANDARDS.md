@@ -7,6 +7,10 @@ Read during review. These are judgement calls; anything mechanical is a lint rul
 - **Every browser path has a test in an engine that takes it.** Code that branches on what the browser can do (canvas encoders, image decoders, file pickers) is covered in Chromium _and_ WebKit (`desktop`/`mobile` and `webkit`/`iphone` in `sites/*/playwright.config.ts`). Safari can't encode WebP, so photo upload takes the JPEG path only there.
 - **Server checks accept what real browsers send.** A check on client-made data (size, format, metadata) is tested with data a real browser produced, not only with fixtures from Sharp or Node. Safari writes EXIF into every canvas JPEG.
 
+## End-to-end tests
+
+- **Find form fields by role and exact name.** Use `getByRole('textbox', { name: 'Heiti', exact: true })`. A required field's label renders as "Heiti \*", so `getByLabel('Heiti', { exact: true })` never matches and times out.
+
 ## Local vs production
 
 - **Local bindings are not production.** The local Images binding is Sharp: it can't read HEIC, ignores `draw`, `blur` and `quality`, and strips EXIF by itself (see `docs/architecture.md` §5). A test that passes only because local mode drops something says so, and the real check is listed for the PR preview.

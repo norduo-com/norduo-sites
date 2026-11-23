@@ -98,6 +98,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 6. Languages
 
 - **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
+- **Editing other locales:** Vefstjórn has no language switcher yet; until #31, a non-default locale is read and saved only through the admin API (`?locale=en` on reads, `locale` in the PUT body), and the site has no `/en` routes until #32.
 - **Namespaces:**
   - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
   - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).

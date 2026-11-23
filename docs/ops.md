@@ -22,3 +22,18 @@ Checked commands for looking at a deployed site. Run them from `sites/<name>` (w
 
 - **Check a photo's EXIF:** download `/img/1920/<id>` and run `exiftool <file>`; it lists no GPS, Make or Model.
 - **Widths:** `/img/<480|960|1440|1920>/<id>`; any other width is 404.
+
+## Behind Access
+
+The PR previews (the whole Worker) and the live site's `/vefstjorn` and `/api/cms/admin` are behind Cloudflare Access. An agent gets through with a service token kept in `.env.access` at the repo root (git-ignored by `.env.*`). Without the file, ask the user to check the page.
+
+```sh
+set -a; . ./.env.access; set +a
+access() { curl -s -H "CF-Access-Client-Id: $CF_ACCESS_CLIENT_ID" -H "CF-Access-Client-Secret: $CF_ACCESS_CLIENT_SECRET" "$@"; }
+access https://pr-<n>-berghald-preview.kh-krimper.workers.dev/ | grep -oE '<title>[^<]*</title>'
+access "https://pr-<n>-berghald-preview.kh-krimper.workers.dev/api/cms/admin/content/pages/home?locale=en"
+```
+
+A 302 to `cloudflareaccess.com` means the token isn't allowed on that Access app. The token can save content, like an editor: save only on a preview.
+
+**Setup (once, by the user):** Zero Trust → Access → Service credentials → Service Tokens → create `agent-preview`. Then, on each Access app it should open (the preview app, and the live admin app only if wanted), add a policy with action **Service Auth** and the rule **Service Token = agent-preview**. Put the Client ID and Secret in `.env.access` as `CF_ACCESS_CLIENT_ID=` and `CF_ACCESS_CLIENT_SECRET=`. The Worker accepts the token's JWT as it is (`packages/cms/src/server/access.ts` needs no email).
