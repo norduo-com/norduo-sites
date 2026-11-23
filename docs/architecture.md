@@ -166,6 +166,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - No personal data: Sentry 11's `dataCollection` turns off user info, cookies, bodies, query strings and all but three headers, and `beforeSend` strips them again (`app/sentry.ts`)
   - One Sentry project per platform: the Worker's DSN is the `SENTRY_DSN` secret, Vefstjórn's `SENTRY_ADMIN_DSN`. Without them Sentry is off (local dev, e2e). `SENTRY_ENVIRONMENT` tags production vs preview, and the Worker version id is the release
   - No tracing: on Workers Free every span costs CPU from the 10 ms budget
+  - Source maps: every build makes them; before each deploy `scripts/sourcemaps.sh` injects debug IDs, uploads them to both projects (`SENTRY_AUTH_TOKEN`, a GitHub secret in `production` and `preview`) and deletes every `.map`, so none is ever served
 - **Uptime check** on berghald.is
 - **Google Analytics**, since ads may run later:
   - Wired through the cookie bar with **Google Consent Mode v2**, which is required for ads in the EU/EEA
