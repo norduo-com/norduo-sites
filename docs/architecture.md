@@ -161,8 +161,10 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 11. Monitoring & analytics
 
 - **Sentry (free tier)**, with the focus on Vefstjórn:
-  - React SDK in the admin UI
-  - Cloudflare SDK in the Hono API, to catch failed saves and uploads
+  - React SDK in the admin UI only, loaded after hydration, so the public site never ships it
+  - Cloudflare SDK around the whole Worker: Hono's `onError`, React Router's `handleError` and the nightly backup
+  - No personal data: Sentry 11's `dataCollection` turns off user info, cookies, bodies, query strings and all but three headers, and `beforeSend` strips them again (`app/sentry.ts`)
+  - The DSN is a `wrangler secret`; without it Sentry is off (local dev, e2e). `SENTRY_ENVIRONMENT` tags production vs preview
 - **Uptime check** on berghald.is
 - **Google Analytics**, since ads may run later:
   - Wired through the cookie bar with **Google Consent Mode v2**, which is required for ads in the EU/EEA

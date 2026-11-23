@@ -39,6 +39,8 @@
   "dependencies": {
     "@norduo/cms": "workspace:*",
     "@norduo/ui": "workspace:*",
+    "@sentry/cloudflare": "11.16.0",
+    "@sentry/react": "11.16.0",
     "hono": "^4.13.19",
     "i18next": "27.2.2",
     "isbot": "^5",

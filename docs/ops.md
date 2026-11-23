@@ -22,3 +22,9 @@ Checked commands for looking at a deployed site. Run them from `sites/<name>` (w
 
 - **Check a photo's EXIF:** download `/img/1920/<id>` and run `exiftool <file>`; it lists no GPS, Make or Model.
 - **Widths:** `/img/<480|960|1440|1920>/<id>`; any other width is 404.
+
+## Sentry
+
+- **Check the Worker reports errors:** open `/api/cms/admin/debug/error` while logged in through Access. It throws on purpose; the event shows up in Sentry tagged with the environment (`production` or `preview`).
+- **Check Vefstjórn reports errors:** on any `/vefstjorn` screen, run `setTimeout(() => { throw new Error('Vefstjórn test') })` in the browser console. (An error thrown straight in the console isn't reported.)
+- **DSN:** `npx wrangler secret put SENTRY_DSN` (add `--env preview` for the PR previews).

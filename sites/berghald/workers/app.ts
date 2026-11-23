@@ -1,8 +1,10 @@
 import { createCmsApi, createImageRoute } from '@norduo/cms/server'
+import * as Sentry from '@sentry/cloudflare'
 import { Hono } from 'hono'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 
 import { cloudflare } from '../app/context'
+import { sentryOptions } from '../app/sentry'
 import cms from '../cms.config'
 import { backupToR2 } from './backup'
 import { withPageCache } from './cache'
@@ -13,6 +15,13 @@ const requestHandler = createRequestHandler(
 )
 
 const app = new Hono<{ Bindings: Env }>()
+
+// Hono turns a thrown error into a 500 itself, so withSentry never sees it; report it here.
+app.onError((error, c) => {
+  Sentry.captureException(error)
+  console.error(error)
+  return c.text('Internal Server Error', 500)
+})
 
 app.route(
   '/api/cms',
@@ -34,9 +43,12 @@ app.all('*', (c) =>
   }),
 )
 
-export default {
-  fetch: app.fetch,
-  scheduled(_controller, env, ctx) {
-    ctx.waitUntil(backupToR2(env))
-  },
-} satisfies ExportedHandler<Env>
+export default Sentry.withSentry(
+  (env: Env) => sentryOptions(env.SENTRY_DSN, env.SENTRY_ENVIRONMENT),
+  {
+    fetch: app.fetch,
+    scheduled(_controller, env, ctx) {
+      ctx.waitUntil(backupToR2(env))
+    },
+  } satisfies ExportedHandler<Env>,
+)
