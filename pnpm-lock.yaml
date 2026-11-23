@@ -117,6 +117,9 @@ importers:
 
   sites/berghald:
     dependencies:
+      '@fontsource/outfit':
+        specifier: 5.2.8
+        version: 5.2.8
       '@norduo/cms':
         specifier: workspace:*
         version: link:../../packages/cms
@@ -866,6 +869,9 @@ packages:
     peerDependenciesMeta:
       '@noble/hashes':
         optional: true
+
+  '@fontsource/outfit@5.2.8':
+    resolution: {integrity: sha512-rXC6g0MqD7cOBjht0bMqc43qM6lRqDLML9KXsmg9uykz0wLQhy8Z/ajrMG6iyoT3NJR+MYgU+OEHp7uHoTb+Yw==}
 
   '@humanfs/core@0.19.2':
     resolution: {integrity: sha512-UhXNm+CFMWcbChXywFwkmhqjs3PRCmcSa/hfBgLIb7oQ5HNb1wS0icWsGtSAUNgefHeI+eBrA8I1fxmbHsGdvA==}
@@ -3620,6 +3626,8 @@ snapshots:
       levn: 0.4.1
 
   '@exodus/bytes@1.16.0': {}
+
+  '@fontsource/outfit@5.2.8': {}
 
   '@humanfs/core@0.19.2':
     dependencies:

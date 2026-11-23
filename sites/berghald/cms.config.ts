@@ -25,9 +25,15 @@ const header = () => ({
   lead: text({ i18n: true, multiline: true, max: 300 }),
 })
 
-/** A page with the shared header and SEO; `route` is left out for the 404 page. */
-const page = <const B extends readonly string[]>(route: string | undefined, blocks: B) => ({
-  ...(route === undefined ? {} : { route }),
+/**
+ * A page with the shared header and SEO, at `is` in Icelandic and `/en` + `en` in English.
+ * Both are left out for the 404 page.
+ */
+const page = <const B extends readonly string[]>(
+  route: { is: string; en: string } | undefined,
+  blocks: B,
+) => ({
+  ...(route === undefined ? {} : { route: route.is, localeRoutes: { en: route.en } }),
   fields: header(),
   seo: seo({ titleFrom: 'title', descriptionFrom: 'lead' }),
   blocks,
@@ -133,13 +139,13 @@ export default defineCms({
     }),
   },
   pages: {
-    home: page('/', ['text', 'quoteForm']),
-    services: page('/thjonusta', ['text']),
-    projects: page('/verkefni', ['text']),
-    about: page('/um-okkur', ['text']),
-    thankYou: page('/takk-fyrir', ['text']),
-    privacy: page('/personuvernd', ['text']),
-    cookies: page('/vafrakokur', ['text']),
+    home: page({ is: '/', en: '/' }, ['text', 'quoteForm']),
+    services: page({ is: '/thjonusta', en: '/services' }, ['text']),
+    projects: page({ is: '/verkefni', en: '/projects' }, ['text']),
+    about: page({ is: '/um-okkur', en: '/about' }, ['text']),
+    thankYou: page({ is: '/takk-fyrir', en: '/thank-you' }, ['text']),
+    privacy: page({ is: '/personuvernd', en: '/privacy' }, ['text']),
+    cookies: page({ is: '/vafrakokur', en: '/cookies' }, ['text']),
     notFound: page(undefined, ['text']),
   },
 })

@@ -4,7 +4,14 @@ import { defineCms } from '../define'
 import { block, richText, slug, text } from '../fields'
 import { seo } from '../seo'
 import { testDatabase } from '../test/d1'
-import { contentVersion, createCmsApi, getPage, listPublished } from './index'
+import {
+  contentVersion,
+  createCmsApi,
+  getPage,
+  getSingleton,
+  listPublished,
+  pageHeaders,
+} from './index'
 
 const cms = defineCms({
   site: {
@@ -39,6 +46,7 @@ const cms = defineCms({
     // Shares its name with the collection below: pages are stored apart.
     equipment: {
       route: '/thjonusta',
+      localeRoutes: { en: '/services' },
       fields: {
         title: text({ required: true, i18n: true }),
         heading: text({ i18n: true }),
@@ -198,6 +206,44 @@ describe('listPublished (site loaders)', () => {
     expect(items.map((i) => i.data)).toEqual([{ name: 'Kranabíll' }, { name: 'Vörubíll' }])
     expect(items.every((i) => i.slug.length > 0)).toBe(true)
   })
+
+  it('in English, lists every item and fills untranslated fields from Icelandic', async () => {
+    const crane = await create({ name: 'Kranabíll', description: 'Lyftir 10 t' }, 'published')
+    await create({ name: 'Vörubíll', description: 'Flytur efni' }, 'published')
+    await call('PUT', `/admin/content/equipment/${crane}`, {
+      locale: 'en',
+      status: 'published',
+      data: { name: 'Crane truck', description: '' },
+    })
+    const items = await listPublished(db.d1, cms, 'equipment', {
+      fields: ['name', 'description'],
+      locale: 'en',
+    })
+    expect(items.map((i) => i.data)).toEqual([
+      { name: 'Crane truck', description: 'Lyftir 10 t' },
+      { name: 'Vörubíll', description: 'Flytur efni' },
+    ])
+  })
+})
+
+describe('getSingleton and pageHeaders (site loaders)', () => {
+  it('read a singleton, with English falling back to Icelandic', async () => {
+    expect(await getSingleton(db.d1, cms, 'settings')).toBeNull()
+    await call('PUT', '/admin/content/settings/settings', { data: { phone: '691 8944' } })
+    expect(await getSingleton(db.d1, cms, 'settings', { locale: 'en' })).toEqual({
+      phone: '691 8944',
+    })
+  })
+
+  it('give the asked-for header fields of every saved page', async () => {
+    await call('PUT', '/admin/content/pages/equipment', {
+      data: { title: 'Þjónusta', lead: 'Allt á einum stað.' },
+    })
+    expect(await pageHeaders(db.d1, cms, ['title'])).toEqual({ equipment: { title: 'Þjónusta' } })
+    expect(await pageHeaders(db.d1, cms, ['title'], { locale: 'en' })).toEqual({
+      equipment: { title: 'Þjónusta' },
+    })
+  })
 })
 
 describe('slug fields', () => {
@@ -291,7 +337,8 @@ describe('pages', () => {
     await call('PUT', '/admin/content/pages/equipment', { data: header })
     const en = { title: 'Services' }
     await call('PUT', '/admin/content/pages/equipment', { locale: 'en', data: en })
-    expect(await getPage(db.d1, cms, 'equipment', { locale: 'en' })).toEqual(en)
+    // Fields with no English yet show the Icelandic text.
+    expect(await getPage(db.d1, cms, 'equipment', { locale: 'en' })).toEqual({ ...header, ...en })
     expect(await getPage(db.d1, cms, 'equipment')).toEqual(header)
   })
 

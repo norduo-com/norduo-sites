@@ -37,7 +37,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
    - collections (e.g. Verkefni, Þjónusta)
    - singletons (e.g. settings); `showUnder: 'pages'` lists one under Síður og textar instead of the menu (the footer)
-   - pages: a fixed set, each with its `route`, its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
+   - pages: a fixed set, each with its `route` and its path in every other locale (`localeRoutes: { en: '/services' }`), its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
    - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
@@ -108,7 +108,9 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **English content = machine draft, then edited:**
   - Each translatable field in Vefstjórn has a "Þýða á ensku" (translate to English) button. It calls Workers AI through the Hono API and fills in the English field.
   - A machine-translated field is flagged "Óyfirfarið" (not reviewed, `needs_review` in D1) until someone edits or approves it.
-  - English fields that are still empty fall back to Icelandic on the public site.
+  - English fields that are still empty fall back to Icelandic on the public site, field by field (`withFallback`, applied by the site loaders `listPublished`, `getPage`, `getSingleton` and `pageHeaders`). An item with no English row still shows in English.
+- **URLs:** Icelandic at the root (`/verkefni`), English under `/en` (`/en/projects`). Each page's path per locale is fixed in `cms.config.ts`; document slugs are shared, so the language switch (`switchLocalePath`) swaps the prefix and page segment, keeps the slug and the query, and is a plain link. `<html lang>` comes from the path. No redirect by `Accept-Language` or cookie.
+- **SEO:** each page has a self canonical and `hreflang` `is`, `en` and `x-default` (Icelandic). `/sitemap.xml` lists both with `xhtml:link` alternates. Every host except `berghald.is` sends `X-Robots-Tag: noindex` (the pre-launch host, PR previews, localhost).
 
 ## 7. Frontend stack
 

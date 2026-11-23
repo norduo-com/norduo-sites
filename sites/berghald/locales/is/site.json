@@ -7,8 +7,32 @@
     "generic": "Eitthvað fór úrskeiðis",
     "home": "Fara á forsíðu"
   },
+  "footer": {
+    "pages": "Síður",
+    "contact": "Hafa samband",
+    "legal": "Lagalegt",
+    "kennitala": "Kt."
+  },
   "home": {
     "eyebrow": "Lóðafrágangur · Hellulagnir · Hleðslur",
     "heading": "Við mótum lóðina þína"
+  },
+  "language": {
+    "switch": "In English",
+    "short": "EN"
+  },
+  "nav": {
+    "main": "Aðalvalmynd",
+    "home": "Berghald – forsíða",
+    "openMenu": "Valmynd",
+    "quote": "Fáðu tilboð",
+    "skip": "Fara beint í efni"
+  },
+  "pages": {
+    "services": "Þjónusta",
+    "projects": "Verkefni",
+    "about": "Um okkur",
+    "privacy": "Persónuverndarstefna",
+    "cookies": "Vafrakökur"
   }
 }

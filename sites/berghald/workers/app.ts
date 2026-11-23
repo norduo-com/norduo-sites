@@ -6,6 +6,7 @@ import { cloudflare } from '../app/context'
 import cms from '../cms.config'
 import { backupToR2 } from './backup'
 import { withPageCache } from './cache'
+import { withRobots } from './robots'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -13,6 +14,12 @@ const requestHandler = createRequestHandler(
 )
 
 const app = new Hono<{ Bindings: Env }>()
+
+// Only berghald.is may be indexed; the pre-launch host and previews send noindex.
+app.use('*', async (c, next) => {
+  await next()
+  c.res = withRobots(c.res, c.req.url, cms.site.url)
+})
 
 app.route(
   '/api/cms',
