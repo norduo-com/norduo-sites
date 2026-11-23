@@ -58,6 +58,7 @@ function collect(field: Field, value: unknown, out: Set<string>) {
       for (const item of list) for (const id of idOf(item)) out.add(id)
       break
     case 'group':
+    case 'seo':
       if (nested.fields && isRecord(value)) walk(nested.fields, value, out)
       break
     case 'repeater':

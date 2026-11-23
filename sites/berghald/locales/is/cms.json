@@ -3,80 +3,173 @@
     "projects": {
       "label": "Verkefni",
       "fields": {
-        "summary": { "label": "Stutt lýsing" },
-        "body": { "label": "Texti" },
-        "photos": { "label": "Myndir og myndbönd" },
-        "showOnHome": { "label": "Sýna á forsíðu" }
+        "summary": {
+          "label": "Stutt lýsing"
+        },
+        "body": {
+          "label": "Texti"
+        },
+        "photos": {
+          "label": "Myndir og myndbönd"
+        },
+        "showOnHome": {
+          "label": "Sýna á forsíðu"
+        }
       }
     },
     "services": {
       "label": "Þjónusta",
       "fields": {
-        "body": { "label": "Lengri texti" },
-        "items": { "label": "Atriði", "fields": { "item": { "label": "Atriði" } } }
+        "body": {
+          "label": "Lengri texti"
+        },
+        "items": {
+          "label": "Atriði",
+          "fields": {
+            "item": {
+              "label": "Atriði"
+            }
+          }
+        }
       }
     },
     "team": {
       "label": "Teymi",
       "fields": {
-        "name": { "label": "Nafn" },
-        "phone": { "label": "Símanúmer" }
+        "name": {
+          "label": "Nafn"
+        },
+        "phone": {
+          "label": "Símanúmer"
+        }
       }
     },
     "equipment": {
       "label": "Tæki"
-    },
-    "pages": {
-      "label": "Síður og textar",
-      "fields": {
-        "sections": { "label": "Hlutar" }
-      }
     }
   },
   "singletons": {
     "settings": {
       "label": "Stillingar",
       "fields": {
-        "phone": { "label": "Sími" },
+        "phone": {
+          "label": "Sími"
+        },
         "enquiriesTo": {
           "label": "Senda fyrirspurnir á",
           "help": "Fleiri netföng aðskilin með kommu."
         }
       }
+    },
+    "footer": {
+      "label": "Fótur",
+      "fields": {
+        "cta": {
+          "label": "Hvatning fyrir ofan fót"
+        }
+      }
     }
   },
   "blocks": {
-    "hero": { "label": "Hetja" },
-    "services": { "label": "Þjónustuhringekja" },
-    "recentProjects": { "label": "Nýleg verkefni" },
-    "howWeWork": { "label": "Svona vinnum við" },
-    "testimonials": { "label": "Umsagnir" },
-    "quoteForm": { "label": "Tilboðsform" }
+    "text": {
+      "label": "Texti"
+    },
+    "quoteForm": {
+      "label": "Tilboðsform"
+    }
   },
   "fields": {
-    "title": { "label": "Heiti" },
-    "name": { "label": "Heiti" },
-    "summary": { "label": "Stutt lýsing" },
-    "description": { "label": "Lýsing" },
-    "services": { "label": "Þjónusta" },
-    "workPeriod": { "label": "Verktími" },
-    "slug": { "label": "Slóð" },
-    "year": { "label": "Ár" },
-    "image": { "label": "Mynd" },
-    "photo": { "label": "Mynd" },
-    "role": { "label": "Hlutverk" },
-    "seoTitle": { "label": "Titill fyrir leitarvélar" },
-    "seoDescription": { "label": "Lýsing fyrir leitarvélar" },
-    "eyebrow": { "label": "Yfirskrift" },
-    "heading": { "label": "Fyrirsögn" },
-    "intro": { "label": "Inngangur" },
-    "steps": { "label": "Skref" },
-    "text": { "label": "Texti" },
-    "items": { "label": "Atriði" },
-    "quote": { "label": "Umsögn" },
-    "company": { "label": "Fyrirtæki" },
-    "kennitala": { "label": "Kennitala" },
-    "email": { "label": "Netfang" },
-    "responseTime": { "label": "Svartími" }
+    "title": {
+      "label": "Heiti"
+    },
+    "name": {
+      "label": "Heiti"
+    },
+    "summary": {
+      "label": "Stutt lýsing"
+    },
+    "description": {
+      "label": "Lýsing"
+    },
+    "services": {
+      "label": "Þjónusta"
+    },
+    "workPeriod": {
+      "label": "Verktími"
+    },
+    "slug": {
+      "label": "Slóð"
+    },
+    "year": {
+      "label": "Ár"
+    },
+    "image": {
+      "label": "Mynd"
+    },
+    "photo": {
+      "label": "Mynd"
+    },
+    "role": {
+      "label": "Hlutverk"
+    },
+    "eyebrow": {
+      "label": "Yfirskrift"
+    },
+    "heading": {
+      "label": "Fyrirsögn"
+    },
+    "text": {
+      "label": "Texti"
+    },
+    "items": {
+      "label": "Atriði"
+    },
+    "company": {
+      "label": "Fyrirtæki"
+    },
+    "kennitala": {
+      "label": "Kennitala"
+    },
+    "email": {
+      "label": "Netfang"
+    },
+    "responseTime": {
+      "label": "Svartími"
+    },
+    "lead": {
+      "label": "Inngangstexti"
+    },
+    "body": {
+      "label": "Texti"
+    },
+    "button": {
+      "label": "Texti á hnappi"
+    }
+  },
+  "pages": {
+    "home": {
+      "label": "Forsíða"
+    },
+    "services": {
+      "label": "Þjónusta"
+    },
+    "projects": {
+      "label": "Verkefni"
+    },
+    "about": {
+      "label": "Um okkur"
+    },
+    "thankYou": {
+      "label": "Takk fyrir"
+    },
+    "privacy": {
+      "label": "Persónuverndarstefna"
+    },
+    "cookies": {
+      "label": "Vafrakökur"
+    },
+    "notFound": {
+      "label": "Síða fannst ekki (404)"
+    }
   }
 }

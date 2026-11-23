@@ -1,9 +1,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { defineCms } from '../define'
-import { slug, text } from '../fields'
+import { block, richText, slug, text } from '../fields'
+import { seo } from '../seo'
 import { testDatabase } from '../test/d1'
-import { contentVersion, createCmsApi, listPublished } from './index'
+import { contentVersion, createCmsApi, getPage, listPublished } from './index'
 
 const cms = defineCms({
   site: {
@@ -32,6 +33,20 @@ const cms = defineCms({
   },
   singletons: {
     settings: { fields: { phone: text({ required: true }) } },
+  },
+  blocks: { text: block({ heading: text({ i18n: true }), body: richText({ i18n: true }) }) },
+  pages: {
+    // Shares its name with the collection below: pages are stored apart.
+    equipment: {
+      route: '/thjonusta',
+      fields: {
+        title: text({ required: true, i18n: true }),
+        heading: text({ i18n: true }),
+        lead: text({ i18n: true }),
+      },
+      seo: seo({ titleFrom: 'title', descriptionFrom: 'lead' }),
+      blocks: ['text'],
+    },
   },
 })
 
@@ -254,5 +269,53 @@ describe('slug fields', () => {
     expect(await slugOf(id, 'en')).toBeUndefined()
     await save(id, { title: 'Hellulögn' })
     expect(await slugOf(id, 'en')).toBe('hellulogn')
+  })
+})
+
+describe('pages', () => {
+  const header = { title: 'Þjónusta', heading: 'Við mótum lóðina þína', lead: 'Allt á einum stað.' }
+
+  it('go live on save, header, seo and blocks included', async () => {
+    const data = {
+      ...header,
+      seo: { keyword: 'garðaþjónusta', title: 'Garðaþjónusta – Berghald' },
+      blocks: [{ type: 'text', data: { heading: 'Um okkur' } }],
+    }
+    const res = await call('PUT', '/admin/content/pages/equipment', { status: 'draft', data })
+    expect(res.status).toBe(200)
+    expect(await getPage(db.d1, cms, 'equipment')).toEqual(data)
+    expect(await publicNames()).toEqual([])
+  })
+
+  it('are saved per locale', async () => {
+    await call('PUT', '/admin/content/pages/equipment', { data: header })
+    const en = { title: 'Services' }
+    await call('PUT', '/admin/content/pages/equipment', { locale: 'en', data: en })
+    expect(await getPage(db.d1, cms, 'equipment', { locale: 'en' })).toEqual(en)
+    expect(await getPage(db.d1, cms, 'equipment')).toEqual(header)
+  })
+
+  it('give nothing before their first save', async () => {
+    expect(await getPage(db.d1, cms, 'equipment')).toBeNull()
+  })
+
+  it('reject an SEO description over 160 characters and a block they do not allow', async () => {
+    const long = { ...header, seo: { description: 'a'.repeat(161) } }
+    expect((await call('PUT', '/admin/content/pages/equipment', { data: long })).status).toBe(422)
+    const hero = { ...header, blocks: [{ type: 'hero', data: {} }] }
+    expect((await call('PUT', '/admin/content/pages/equipment', { data: hero })).status).toBe(422)
+  })
+
+  it('reject a share image that is not in the media library', async () => {
+    const data = { ...header, seo: { image: { mediaId: 'nope' } } }
+    expect((await call('PUT', '/admin/content/pages/equipment', { data })).status).toBe(422)
+  })
+
+  it('cannot be created under another name or deleted', async () => {
+    expect((await call('PUT', '/admin/content/pages/other', { data: header })).status).toBe(404)
+    expect((await call('POST', '/admin/content/pages', { data: header })).status).toBe(404)
+    await call('PUT', '/admin/content/pages/equipment', { data: header })
+    expect((await call('DELETE', '/admin/content/pages/equipment')).status).toBe(404)
+    expect(await getPage(db.d1, cms, 'equipment')).toEqual(header)
   })
 })

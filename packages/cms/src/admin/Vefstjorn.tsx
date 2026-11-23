@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import type { CmsConfig, SingletonConfig } from '../define'
-import { collectionLabelKey, singletonLabelKey } from '../labels'
+import { type CmsConfig, MEDIA_SCREEN, pageFields, PAGES_SCREEN } from '../define'
+import type { Fields } from '../fields'
+import { collectionLabelKey, pageLabelKey, singletonLabelKey } from '../labels'
 import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
 import { AdminContext } from './context'
 import { Editor, type EditorDoc } from './Editor'
-
-/** Built-in screens that aren't a collection or singleton. */
-const MEDIA = 'media'
 
 /**
  * Admin shell. Screens are generated from the site's config: one list + editor per
@@ -32,23 +30,83 @@ export function Vefstjorn({
   const api = useMemo(() => adminApi(apiBase), [apiBase])
   const admin = useMemo(() => ({ api, config }), [api, config])
   const singletons = config.singletons ?? {}
-  const screen = path.split('/')[0] ?? ''
+  const [screen = '', sub = ''] = path.split('/')
+  const pages = config.pages ?? {}
+  // Singletons shown under Síður og textar (the footer) aren't in the menu themselves.
+  const underPages = Object.keys(singletons).filter(
+    (s) => singletons[s]?.showUnder === PAGES_SCREEN,
+  )
+  const hasPagesScreen = Object.keys(pages).length > 0 || underPages.length > 0
 
-  const known = [...Object.keys(config.collections), ...Object.keys(singletons), MEDIA]
+  const known = [
+    ...Object.keys(config.collections),
+    ...Object.keys(singletons).filter((s) => !underPages.includes(s)),
+    ...(hasPagesScreen ? [PAGES_SCREEN] : []),
+    MEDIA_SCREEN,
+  ]
   const menu = [...(config.admin?.menu ?? []), ...known].filter(
     (id, i, all) => known.includes(id) && all.indexOf(id) === i,
   )
   const labelOf = (id: string) =>
-    id === MEDIA
+    id === MEDIA_SCREEN
       ? t('nav.media')
-      : Object.hasOwn(config.collections, id)
-        ? t(collectionLabelKey(id), { ns: 'cms' })
-        : t(singletonLabelKey(id), { ns: 'cms' })
+      : id === PAGES_SCREEN
+        ? t('nav.pages')
+        : Object.hasOwn(config.collections, id)
+          ? t(collectionLabelKey(id), { ns: 'cms' })
+          : t(singletonLabelKey(id), { ns: 'cms' })
 
   const collection = Object.hasOwn(config.collections, screen)
     ? config.collections[screen]
     : undefined
   const singleton = Object.hasOwn(singletons, screen) ? singletons[screen] : undefined
+
+  /** One page or footer-like singleton, opened from Síður og textar. */
+  const pageScreen = () => {
+    const back = { href: `${base}/${PAGES_SCREEN}`, label: t('nav.pages') }
+    if (Object.hasOwn(pages, sub)) {
+      return (
+        <DocumentScreen
+          key={sub}
+          api={api}
+          type={PAGES_SCREEN}
+          name={sub}
+          owner={`pages.${sub}`}
+          heading={t(pageLabelKey(sub), { ns: 'cms' })}
+          fields={pageFields(config, sub)}
+          previewPath={pages[sub]?.route}
+          back={back}
+        />
+      )
+    }
+    if (underPages.includes(sub)) {
+      return (
+        <DocumentScreen
+          key={sub}
+          api={api}
+          type={sub}
+          name={sub}
+          owner={`singletons.${sub}`}
+          heading={t(singletonLabelKey(sub), { ns: 'cms' })}
+          fields={singletons[sub]?.fields ?? {}}
+          back={back}
+        />
+      )
+    }
+    return (
+      <PagesScreen
+        base={base}
+        items={[
+          ...Object.entries(pages).map(([name, p]) => ({
+            name,
+            label: t(pageLabelKey(name), { ns: 'cms' }),
+            route: p.route,
+          })),
+          ...underPages.map((name) => ({ name, label: t(singletonLabelKey(name), { ns: 'cms' }) })),
+        ]}
+      />
+    )
+  }
 
   return (
     <AdminContext.Provider value={admin}>
@@ -75,7 +133,17 @@ export function Vefstjorn({
           {collection ? (
             <CollectionScreen key={screen} api={api} name={screen} collection={collection} />
           ) : singleton ? (
-            <SingletonScreen key={screen} api={api} name={screen} singleton={singleton} />
+            <DocumentScreen
+              key={screen}
+              api={api}
+              type={screen}
+              name={screen}
+              owner={`singletons.${screen}`}
+              heading={t(singletonLabelKey(screen), { ns: 'cms' })}
+              fields={singleton.fields}
+            />
+          ) : screen === PAGES_SCREEN && hasPagesScreen ? (
+            pageScreen()
           ) : screen ? (
             <>
               <h1 className="text-2xl">{labelOf(screen)}</h1>
@@ -93,22 +161,69 @@ export function Vefstjorn({
   )
 }
 
-/** A singleton exists once and goes live on save, so it opens straight into its form. */
-function SingletonScreen({
+/** Síður og textar: the site's fixed pages, then the singletons shown with them. */
+function PagesScreen({
+  base,
+  items,
+}: {
+  base: string
+  items: { name: string; label: string; route?: string }[]
+}) {
+  const { t } = useTranslation('vefstjorn')
+  return (
+    <section aria-labelledby="pages-heading" className="max-w-2xl gap-3 flex flex-col">
+      <h1 id="pages-heading" className="text-2xl">
+        {t('nav.pages')}
+      </h1>
+      <ul className="gap-1 flex flex-col">
+        {items.map((item) => (
+          <li key={item.name}>
+            <a
+              href={`${base}/${PAGES_SCREEN}/${item.name}`}
+              className="gap-3 rounded-lg bg-white px-3 py-2 hover:bg-neutral-50 flex items-center justify-between"
+            >
+              <span>{item.label}</span>
+              {item.route && (
+                <code className="font-mono text-sm text-neutral-500">{item.route}</code>
+              )}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+/**
+ * A document that exists once and goes live on save (a singleton or a page), so it opens
+ * straight into its form. Its first save creates it.
+ */
+function DocumentScreen({
   api,
+  type,
   name,
-  singleton,
+  owner,
+  heading,
+  fields,
+  previewPath,
+  back,
 }: {
   api: AdminApi
+  /** Pages are all stored under type "pages", with their name as the slug. */
+  type: string
   name: string
-  singleton: SingletonConfig
+  owner: string
+  heading: string
+  fields: Fields
+  previewPath?: string
+  back?: { href: string; label: string }
 }) {
   const { t } = useTranslation(['vefstjorn', 'cms'])
   const [doc, setDoc] = useState<EditorDoc | null>(null)
   const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
-    api.get(name, name).then(
+    api.get(type, name).then(
       (d) => {
         setDoc(d)
       },
@@ -119,22 +234,28 @@ function SingletonScreen({
         } else setLoadError(true)
       },
     )
-  }, [api, name])
+  }, [api, type, name])
 
   return (
     <section className="max-w-2xl gap-4 flex flex-col">
-      <h1 className="text-2xl">{t(singletonLabelKey(name), { ns: 'cms' })}</h1>
+      {back && (
+        <a href={back.href} className="text-sm text-neutral-600 hover:underline">
+          ← {back.label}
+        </a>
+      )}
+      <h1 className="text-2xl">{heading}</h1>
       {loadError && <p role="alert">{t('errors.loadFailed')}</p>}
       {!doc && !loadError && <p>{t('list.loading')}</p>}
       {doc && (
         <div className="bg-white rounded-card p-tp">
           <Editor
             api={api}
-            type={name}
-            owner={`singletons.${name}`}
-            fields={singleton.fields}
+            type={type}
+            owner={owner}
+            fields={fields}
             drafts={false}
             doc={doc}
+            previewPath={previewPath}
             onSaved={() => undefined}
           />
         </div>

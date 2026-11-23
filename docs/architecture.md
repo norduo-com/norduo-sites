@@ -36,11 +36,12 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
    - a `slug()` is made from its `from` field while a draft and locked on first publish; the server owns it and editors can't type it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
    - collections (e.g. Verkefni, Þjónusta)
-   - singletons (e.g. settings)
-   - page blocks (e.g. hero, services carousel, before/after, testimonials, quote form)
+   - singletons (e.g. settings); `showUnder: 'pages'` lists one under Síður og textar instead of the menu (the footer)
+   - pages: a fixed set, each with its `route`, its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
+   - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
-**Pages = ordered lists of blocks.** A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
+**Pages = a fixed header + SEO, then an ordered list of blocks.** A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
 
 **Storage:**
 
@@ -49,7 +50,9 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 - Zod schemas generated from the config validate data on save and give the frontend typed content.
 - Trade-off: JSON is harder to query than real tables. That's fine at this scale (about 10 projects).
 
-**Drafts:** every document has a draft/published status. Only published content is rendered publicly. A logged-in admin can preview drafts.
+**Drafts:** collections with `drafts: true` save as draft or published. Pages and singletons go live on save. Only published content is rendered publicly. A logged-in admin can preview drafts.
+
+**SEO:** `seo()` holds a keyword, title (60), description (160) and an optional share image. An empty title or description falls back to the owner's `titleFrom` / `descriptionFrom` field (rich text as plain text, cut at 160). The keyword is shown only in Vefstjórn's Google preview, never output as a meta tag. `seoMeta()` resolves the fallbacks for the site's `<head>`.
 
 **Per-site admin branding:** the config also sets Vefstjórn's logo, colours, menu order and labels, so each client gets a branded admin from the same code.
 

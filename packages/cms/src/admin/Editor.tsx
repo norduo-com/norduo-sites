@@ -57,6 +57,7 @@ export function Editor({
   fields,
   drafts,
   doc,
+  previewPath,
   onSaved,
   onDeleted,
 }: {
@@ -67,6 +68,8 @@ export function Editor({
   fields: Fields
   drafts: boolean
   doc: EditorDoc
+  /** The document's path on the site, for the Google preview of a seo() field. */
+  previewPath?: string
   onSaved: (doc: EditorDoc & { slug: string }) => void
   onDeleted?: () => void
 }) {
@@ -134,6 +137,8 @@ export function Editor({
           path={name}
           idPrefix={formId}
           value={values[name]}
+          doc={values}
+          previewPath={previewPath}
           errors={errors}
           onChange={(value) => {
             setValues((v) => ({ ...v, [name]: value }))

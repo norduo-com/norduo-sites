@@ -1,6 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
-import { block, blocks, defineCms, gallery, schemaOf, select, slug, text } from './index'
+import {
+  block,
+  blocks,
+  defineCms,
+  gallery,
+  pageFields,
+  schemaOf,
+  select,
+  seo,
+  slug,
+  text,
+} from './index'
 import { createCmsApi } from './server'
 
 const cms = defineCms({
@@ -19,7 +30,7 @@ const cms = defineCms({
         photos: gallery(),
       },
     },
-    pages: {
+    posts: {
       fields: {
         title: text({ required: true }),
         body: blocks({
@@ -47,7 +58,7 @@ describe('schemaOf', () => {
   })
 
   it('validates page blocks by type', () => {
-    const pages = schemaOf(cms.collections.pages.fields)
+    const pages = schemaOf(cms.collections.posts.fields)
     expect(
       pages.safeParse({ title: 'Forsíða', body: [{ type: 'hero', data: { heading: 'Hæ' } }] })
         .success,
@@ -66,6 +77,29 @@ describe('defineCms', () => {
         collections: { projects: { fields: { title: text(), slug: slug({ from: 'titel' }) } } },
       }),
     ).toThrow(/titel/)
+  })
+
+  it('rejects an seo fallback the collection or singleton does not have', () => {
+    const site = {
+      id: 'x',
+      name: 'X',
+      url: 'https://x.is',
+      locales: ['is'],
+      defaultLocale: 'is',
+    } as const
+    expect(() =>
+      defineCms({
+        site,
+        collections: { projects: { fields: { title: text(), seo: seo({ titleFrom: 'titel' }) } } },
+      }),
+    ).toThrow(/titel/)
+    expect(() =>
+      defineCms({
+        site,
+        collections: {},
+        singletons: { settings: { fields: { seo: seo({ descriptionFrom: 'lead' }) } } },
+      }),
+    ).toThrow(/lead/)
   })
 
   it('rejects a default locale that is not listed', () => {
@@ -98,5 +132,77 @@ describe('createCmsApi', () => {
       headers: { 'content-type': 'application/json' },
     })
     expect(res.status).toBe(400)
+  })
+})
+
+describe('pages', () => {
+  const site = {
+    id: 'x',
+    name: 'X',
+    url: 'https://x.is',
+    locales: ['is'],
+    defaultLocale: 'is',
+  } as const
+  const library = {
+    intro: block({ heading: text() }),
+    serviceList: block({ heading: text() }),
+  }
+  const withPages = defineCms({
+    site,
+    collections: {},
+    blocks: library,
+    pages: {
+      home: {
+        route: '/',
+        fields: { title: text({ required: true }), lead: text() },
+        seo: seo({ titleFrom: 'title', descriptionFrom: 'lead' }),
+        blocks: ['intro'],
+      },
+    },
+  })
+
+  it('have their header fields, seo and the blocks they allow', () => {
+    const schema = schemaOf(pageFields(withPages, 'home'))
+    const intro = { type: 'intro', data: { heading: 'Hæ' } }
+    expect(
+      schema.safeParse({ title: 'Forsíða', seo: { title: 'Berghald' }, blocks: [intro] }).success,
+    ).toBe(true)
+    expect(schema.safeParse({ title: '' }).success).toBe(false)
+    const notAllowed = { type: 'serviceList', data: {} }
+    expect(schema.safeParse({ title: 'Forsíða', blocks: [notAllowed] }).success).toBe(false)
+  })
+
+  const page = (extra: Record<string, unknown>) => ({
+    route: '/',
+    fields: { title: text() },
+    seo: seo(),
+    ...extra,
+  })
+  const define =
+    (pages: Record<string, unknown>, more: Record<string, unknown> = {}) =>
+    () =>
+      defineCms({ site, collections: {}, blocks: library, pages, ...more } as never)
+
+  it('reject a block that is not in the library', () => {
+    expect(define({ home: page({ blocks: ['hero'] }) })).toThrow(/hero/)
+  })
+
+  it('may share a name with a collection, since pages are stored apart', () => {
+    expect(
+      define({ projects: page({}) }, { collections: { projects: { fields: {} } } }),
+    ).not.toThrow()
+  })
+
+  it('reject a route that is not a path, or one used twice', () => {
+    expect(define({ home: page({ route: 'thjonusta' }) })).toThrow(/route/)
+    expect(define({ a: page({ route: '/x' }), b: page({ route: '/x' }) })).toThrow(/\/x/)
+  })
+
+  it('reject header fields named seo or blocks', () => {
+    expect(define({ home: page({ fields: { seo: text() } }) })).toThrow(/seo/)
+  })
+
+  it('reject an seo fallback that is not a header field', () => {
+    expect(define({ home: page({ seo: seo({ titleFrom: 'titel' }) }) })).toThrow(/titel/)
   })
 })

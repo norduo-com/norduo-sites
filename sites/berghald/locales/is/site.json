@@ -6,5 +6,9 @@
     "notFound": "Síða fannst ekki",
     "generic": "Eitthvað fór úrskeiðis",
     "home": "Fara á forsíðu"
+  },
+  "home": {
+    "eyebrow": "Lóðafrágangur · Hellulagnir · Hleðslur",
+    "heading": "Við mótum lóðina þína"
   }
 }
