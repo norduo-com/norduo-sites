@@ -44,6 +44,24 @@
     "email": "Sláðu inn gilt netfang, t.d. nafn@fyrirtaeki.is.",
     "url": "Sláðu inn fulla slóð sem byrjar á https://."
   },
+  "locales": {
+    "is": "Íslenska",
+    "en": "Enska"
+  },
+  "translation": {
+    "language": "Tungumál",
+    "auto": "Enski textinn er vélþýddur eftir hverja vistun á íslensku.",
+    "help": "Hér breytirðu bara textunum. Myndir og aðrar stillingar fylgja íslensku útgáfunni.",
+    "saveSourceFirst": "Vistaðu íslenska textann fyrst. Þá verður til ensk vélþýðing.",
+    "approve": "Samþykkja",
+    "approveField": "Samþykkja þýðingu á „{{field}}“",
+    "approved": "Þýðing samþykkt",
+    "state": {
+      "machine": "Óyfirfarið",
+      "pending": "Bíður þýðingar",
+      "failed": "Þýðing tókst ekki"
+    }
+  },
   "screens": {
     "comingSoon": "Þessi skjár kemur síðar."
   },

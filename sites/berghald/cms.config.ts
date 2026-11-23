@@ -46,6 +46,20 @@ export default defineCms({
     locales: ['is', 'en'],
     defaultLocale: 'is',
   },
+  // Told to the translation model; not shown anywhere.
+  translation: {
+    about:
+      'Berghald, an Icelandic landscaping company (gardens, paving, stone walls, a crane truck)',
+    glossary: {
+      hellulögn: 'paving',
+      hleðsla: 'stone walling',
+      grjóthleðsla: 'stone wall',
+      kranabíll: 'crane truck',
+      þökulögn: 'turfing',
+      lóðafrágangur: 'landscaping',
+      snjómokstur: 'snow clearing',
+    },
+  },
   admin: {
     title: 'Vefstjórn',
     logo: '/logo_w.png',

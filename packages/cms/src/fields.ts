@@ -12,7 +12,7 @@ import { richTextSchema } from './richtext'
 export interface FieldOptions<R extends boolean | undefined = undefined> {
   /** Fields are optional unless `required: true`. */
   required?: R
-  /** Translatable: stored per locale, gets the "Þýða á ensku" button. */
+  /** Translatable: stored per locale, machine translated from the default locale on save. */
   i18n?: boolean
 }
 

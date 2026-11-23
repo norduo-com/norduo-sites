@@ -21,6 +21,7 @@ export function SeoInput({
   value,
   doc,
   previewPath,
+  translating = false,
   errors,
   onChange,
 }: {
@@ -33,6 +34,8 @@ export function SeoInput({
   doc: Record<string, unknown>
   /** Path of the document on the site, e.g. "/thjonusta"; shown in the preview. */
   previewPath?: string
+  /** A translation: the share image belongs to the default locale. */
+  translating?: boolean
   errors: FieldErrors
   onChange: (value: unknown) => void
 }) {
@@ -134,19 +137,20 @@ export function SeoInput({
         />,
       )}
 
-      {row(
-        'image',
-        t('seo.imageHelp'),
-        <ImageInput
-          id={id('image')}
-          describedBy={describe('image')['aria-describedby']}
-          invalid={Boolean(errorOf('image'))}
-          value={own.image}
-          onChange={(v) => {
-            set('image', v)
-          }}
-        />,
-      )}
+      {!translating &&
+        row(
+          'image',
+          t('seo.imageHelp'),
+          <ImageInput
+            id={id('image')}
+            describedBy={describe('image')['aria-describedby']}
+            invalid={Boolean(errorOf('image'))}
+            value={own.image}
+            onChange={(v) => {
+              set('image', v)
+            }}
+          />,
+        )}
 
       <div
         role="group"

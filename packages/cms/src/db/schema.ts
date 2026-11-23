@@ -1,6 +1,8 @@
 import { sql } from 'drizzle-orm'
 import { index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core'
 
+import type { Translations } from '../translate'
+
 /**
  * Generic schema shared by every site. Content lives as JSON in `documents`,
  * validated by the Zod schemas generated from the site's cms.config.ts.
@@ -19,9 +21,14 @@ export const documents = sqliteTable(
     status: text('status', { enum: ['draft', 'published'] })
       .notNull()
       .default('draft'),
-    /** Set when the English text is a machine draft nobody has checked ("Óyfirfarið"). */
+    /** Set when some translated text is a machine draft nobody has checked ("Óyfirfarið"). */
     needsReview: integer('needs_review', { mode: 'boolean' }).notNull().default(false),
     data: text('data', { mode: 'json' }).$type<Record<string, unknown>>().notNull(),
+    /**
+     * Rows of a translated locale only: per translatable text (keyed by its path), a hash
+     * of the source text and its state (machine, reviewed, pending, failed). See translate.ts.
+     */
+    translations: text('translations', { mode: 'json' }).$type<Translations>(),
     sort: integer('sort').notNull().default(0),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull().default(now),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull().default(now),

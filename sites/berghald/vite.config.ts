@@ -4,6 +4,12 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-  plugins: [cloudflare({ viteEnvironment: { name: 'ssr' } }), tailwindcss(), reactRouter()],
+  plugins: [
+    // No remote bindings: AI would need a Cloudflare login, which CI's e2e job doesn't have.
+    // Locally, translation uses the fake translator (TRANSLATOR=fake in .dev.vars).
+    cloudflare({ viteEnvironment: { name: 'ssr' }, remoteBindings: false }),
+    tailwindcss(),
+    reactRouter(),
+  ],
   resolve: { tsconfigPaths: true },
 })

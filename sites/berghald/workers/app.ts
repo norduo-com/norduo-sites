@@ -1,4 +1,4 @@
-import { createCmsApi, createImageRoute } from '@norduo/cms/server'
+import { createCmsApi, createImageRoute, retryTranslations } from '@norduo/cms/server'
 import { Hono } from 'hono'
 import { createRequestHandler, RouterContextProvider } from 'react-router'
 
@@ -38,5 +38,7 @@ export default {
   fetch: app.fetch,
   scheduled(_controller, env, ctx) {
     ctx.waitUntil(backupToR2(env))
+    // After the 00:00 UTC reset of the free AI allowance: translations left pending.
+    ctx.waitUntil(retryTranslations(cms, env))
   },
 } satisfies ExportedHandler<Env>

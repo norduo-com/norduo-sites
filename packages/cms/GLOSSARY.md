@@ -55,3 +55,7 @@ _Avoid_: Lead, message, submission, ticket
 **Job** (UI: _Verk_, link _Merkja sem verk_):
 An enquiry the site owner has marked as having led to work. Marking it lengthens how long it is kept.
 _Avoid_: Order, conversion, won
+
+**Machine translation** (UI: _Óyfirfarið_ until reviewed):
+An English text the CMS wrote from the Icelandic after a save. It is flagged Óyfirfarið in Vefstjórn until someone edits or approves it (_Samþykkja_), and shown on the public site meanwhile.
+_Avoid_: Auto-translate, draft translation
