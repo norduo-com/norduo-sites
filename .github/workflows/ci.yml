@@ -89,11 +89,11 @@ jobs:
         id: browsers
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium-webkit
       - if: steps.browsers.outputs.cache-hit != 'true'
-        run: pnpm --filter berghald exec playwright install --with-deps chromium
+        run: pnpm --filter berghald exec playwright install --with-deps chromium webkit
       - if: steps.browsers.outputs.cache-hit == 'true'
-        run: pnpm --filter berghald exec playwright install-deps chromium
+        run: pnpm --filter berghald exec playwright install-deps chromium webkit
       # Local mode for e2e: no Access check, no page cache (the build bundles .dev.vars).
       # .dev.vars is a turbo input, so this build never shares a cache entry with a deploy build.
       - run: cp sites/berghald/.dev.vars.example sites/berghald/.dev.vars

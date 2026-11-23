@@ -87,6 +87,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - A HEIC the browser can't decode (≤ 20 MB) goes to `tmp/<id>` as it is; a second request makes its master (drawn onto a blank base, which drops EXIF) and deletes `tmp/<id>`. An R2 lifecycle rule deletes anything under `tmp/` after 1 day. Larger ones are refused.
   - The blurred preview (32 px WebP) and the master's width and height are stored in `media` at upload. `media_refs` (document, locale → photo) is rewritten on every save.
   - `/img/<480|960|1440|1920>/<id>` serves the widths from the master through the Images binding, AVIF ≤ 1200 px, else WebP or JPEG by `Accept`, cached with the Cache API. Other widths are 404.
+- **Local dev and tests:** the local Images binding is Sharp. It can't read HEIC, ignores `draw`, `blur` and `quality`, and strips EXIF by itself, so a local EXIF check proves little; the HEIC path is only testable on the PR preview. Miniflare's Node proxy (`packages/cms/src/test/d1.ts`) can't pass a transformer into `draw()`, so the test harness drops it. Safari can't encode WebP, so the JPEG path runs only in the WebKit e2e projects.
 - Larger files such as videos (up to 500 MB) are uploaded straight to R2 with a presigned URL.
 - **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
@@ -152,7 +153,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 - Turborepo's `--affected` means only the changed parts get linted, tested and built.
 - Changes to `*.md` files only run the Prettier check: lint, typecheck, test, build, e2e, preview and deploy are skipped.
-- The pnpm store, the Turborepo cache and Playwright's Chromium are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
+- The pnpm store, the Turborepo cache and Playwright's Chromium and WebKit are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
 - A change in `sites/berghald` runs only Berghald's tests.
 - A change in `packages/cms` (or `ui`/`config`) runs the CMS tests and the tests of every site that depends on it.
 - Deploys go per site via Wrangler on push to `main` (`turbo run deploy --affected`).

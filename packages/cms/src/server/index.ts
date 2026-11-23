@@ -1,6 +1,6 @@
 import { and, asc, eq, inArray, max, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
-import { Hono } from 'hono'
+import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 
 import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
@@ -9,7 +9,7 @@ import { type Fields, schemaOf } from '../fields'
 import { mediaIdsOf } from '../media'
 import { slugify, uniqueSlug } from '../slug'
 import { verifyAccessJwt } from './access'
-import { masterFromRaw, putRaw, storeBrowserMaster } from './media'
+import { masterFromRaw, type MediaFailure, putRaw, storeBrowserMaster } from './media'
 
 export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
 
@@ -509,26 +509,38 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     return c.json({ ok: true })
   })
 
+  /** A refused upload, logged so Workers Logs show why (the admin only sees a short code). */
+  const refused = (
+    c: Context,
+    route: string,
+    { error, status }: MediaFailure,
+    detail: Record<string, unknown> = {},
+  ) => {
+    console.warn('media upload refused', { route, error, status, ...detail })
+    return c.json({ error }, status)
+  }
+
   // Photos, one per request: the browser makes the master when it can (see admin/upload.ts).
   app.post('/admin/media', async (c) => {
     const form = await c.req.formData().catch(() => null)
     const file = form?.get('file')
     if (!(file instanceof File)) return c.json({ error: 'noFile' }, 400)
     const result = await storeBrowserMaster(c.env, file)
-    if ('status' in result) return c.json({ error: result.error }, result.status)
+    if ('status' in result)
+      return refused(c, 'master', result, { type: file.type, size: file.size })
     return c.json(result, 201)
   })
 
   // A HEIC the browser can't decode: the raw file first, then the master in its own request.
   app.post('/admin/media/raw', async (c) => {
     const result = await putRaw(c.env, c.req.raw, c.req.query('filename') ?? 'photo.heic')
-    if ('status' in result) return c.json({ error: result.error }, result.status)
+    if ('status' in result) return refused(c, 'raw', result)
     return c.json(result, 201)
   })
 
   app.post('/admin/media/raw/:id', async (c) => {
     const result = await masterFromRaw(c.env, c.req.param('id'))
-    if ('status' in result) return c.json({ error: result.error }, result.status)
+    if ('status' in result) return refused(c, 'rawMaster', result)
     return c.json(result.media, result.created ? 201 : 200)
   })
 

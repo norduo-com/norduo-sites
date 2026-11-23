@@ -11,7 +11,11 @@ import { type AdminApi, ApiError } from './api'
 export type UploadErrorCode = 'tooBig' | 'unsupported' | 'failed'
 
 export class UploadError extends Error {
-  constructor(readonly code: UploadErrorCode) {
+  constructor(
+    readonly code: UploadErrorCode,
+    /** What went wrong, for a bug report, e.g. "422 tooLarge". */
+    readonly detail?: string,
+  ) {
     super(code)
   }
 }
@@ -71,6 +75,15 @@ function codeOf(err: unknown): UploadErrorCode {
   return 'failed'
 }
 
+function detailOf(err: unknown): string | undefined {
+  if (err instanceof UploadError) return err.detail
+  if (err instanceof ApiError) {
+    const body = err.body as { error?: unknown } | null
+    return [err.status, typeof body?.error === 'string' ? body.error : ''].join(' ').trim()
+  }
+  return err instanceof Error ? err.name : undefined
+}
+
 /** Uploads one photo and returns it once its master is stored. Throws `UploadError`. */
 export async function uploadImage(api: AdminApi, file: File): Promise<MediaInfo> {
   try {
@@ -88,6 +101,6 @@ export async function uploadImage(api: AdminApi, file: File): Promise<MediaInfo>
     const { id } = await withRetry(() => api.uploadRaw(file))
     return await withRetry(() => api.makeMaster(id))
   } catch (err) {
-    throw new UploadError(codeOf(err))
+    throw new UploadError(codeOf(err), detailOf(err))
   }
 }

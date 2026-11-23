@@ -1,5 +1,5 @@
 import sharp from 'sharp'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { defineCms } from '../define'
 import { image, text } from '../fields'
@@ -104,6 +104,16 @@ describe('POST /admin/media', () => {
     const res = await upload(await photo('webp', 3000, 2000), 'image/webp')
     expect(res.status).toBe(422)
     expect(await res.json()).toEqual({ error: 'tooLarge' })
+  })
+
+  it('logs why it refused a photo, so Workers Logs show the reason', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    await upload(await photo('webp', 3000, 2000), 'image/webp', 'IMG_0003.webp')
+    expect(warn).toHaveBeenCalledWith(
+      'media upload refused',
+      expect.objectContaining({ route: 'master', error: 'tooLarge', status: 422 }),
+    )
+    warn.mockRestore()
   })
 
   it('refuses files that are not WebP or JPEG', async () => {

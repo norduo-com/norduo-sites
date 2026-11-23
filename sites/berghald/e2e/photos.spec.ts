@@ -106,7 +106,8 @@ test('a photo nobody can read gets an Icelandic message', async ({ page }) => {
     mimeType: 'image/heic',
     buffer: Buffer.from('not really a photo'),
   })
-  await expect(page.getByRole('alert')).toHaveText(
-    'Ekki tókst að lesa myndina. Notaðu JPG, PNG, HEIC eða WebP.',
-  )
+  const alert = page.getByRole('alert')
+  await expect(alert).toContainText('Ekki tókst að lesa myndina. Notaðu JPG, PNG, HEIC eða WebP.')
+  // The server's reason, for a bug report.
+  await expect(alert).toContainText('Villukóði: 415 undecodable')
 })

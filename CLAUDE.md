@@ -25,20 +25,20 @@ Read `docs/architecture.md` before making structural decisions. It records what 
 - **Everything runs on Cloudflare's free tier, with no paid server.** Mind the 10 ms CPU limit per request on Workers Free.
 - **Wording is Icelandic.** Use Icelandic for all user-facing text in the site and the admin. Code, comments and commit messages are in English.
 - **This is a public repo.** Never commit secrets, `.dev.vars`, client photos or personal data. Content lives in D1 and R2.
-- Use the spacing and radius tokens (`p-g`, `p-in`, `py-s`, `mt-s2`, `p-cp`, `p-tp`, `gap-grid`, `rounded-box`, `rounded-card`, `rounded-img`) instead of arbitrary values. See `docs/spacing-system.md`.
+- Spacing and radius come from the tokens in `docs/spacing-system.md`; `pnpm lint` flags arbitrary values in sites.
 
 ## Commands
 
 ```sh
 pnpm check                              # lint + typecheck + unit tests, all packages
 pnpm --filter berghald dev              # site at :5173, admin at /vefstjorn
-pnpm --filter berghald test:e2e         # Playwright
+pnpm test:e2e --filter berghald         # Playwright (turbo builds first)
 pnpm --filter berghald db:migrate:local
 pnpm --filter berghald db:migrate:preview # the PR-preview D1 (CI also runs it)
 pnpm --filter @norduo/cms db:generate   # after editing src/db/schema.ts
 ```
 
-Run `pnpm check` before calling work done. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
+Run `pnpm check` before calling work done. Logs, R2 and D1 on the live site: `docs/ops.md`. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
 
 ## Stack
 
