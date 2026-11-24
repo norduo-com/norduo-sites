@@ -110,6 +110,7 @@
     "help": "Myndbönd mega vera MP4, allt að 200 MB. Settu lengri myndbönd á YouTube eða Vimeo og bættu við tengli á þau.",
     "uploadingPhotos": "Hleður upp mynd {{n}} af {{count}}…",
     "uploadingVideo": "Hleður upp myndbandi… {{percent}}%",
+    "makingPoster": "Býr til mynd úr myndbandinu…",
     "kind": {
       "image": "Mynd {{n}}",
       "video": "Myndband {{n}}",

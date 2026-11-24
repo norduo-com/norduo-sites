@@ -97,10 +97,19 @@ export function GalleryInput({
   const addVideo = (file: File) =>
     run(async () => {
       setBusy(t('gallery.uploadingVideo', { percent: 0 }))
-      const media = await uploadVideo(api, file, (share) => {
+      const { media, frame } = await uploadVideo(api, file, (share) => {
         setBusy(t('gallery.uploadingVideo', { percent: Math.round(share * 100) }))
       })
-      set([...latest.current, { kind: 'video', mediaId: media.id }])
+      // A still from the video becomes its poster; without one, the editor can pick a photo.
+      let poster: { mediaId: string } | undefined
+      if (frame) {
+        setBusy(t('gallery.makingPoster'))
+        poster = await uploadImage(api, frame).then(
+          (m) => ({ mediaId: m.id }),
+          () => undefined,
+        )
+      }
+      set([...latest.current, { kind: 'video', mediaId: media.id, ...(poster && { poster }) }])
     })
 
   const addPoster = (index: number, file: File) =>

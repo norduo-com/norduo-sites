@@ -82,6 +82,63 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
   expect(part.headers()['content-range']).toBe(`bytes 0-99/${String(clip.length)}`)
 })
 
+/** A real 2 s MP4 (VP9, which Chromium can both record and decode) of a moving square. */
+async function recordedMp4(page: Page): Promise<Buffer> {
+  const bytes = await page.evaluate(async () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 320
+    canvas.height = 240
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('no canvas')
+    const recorder = new MediaRecorder(canvas.captureStream(30), {
+      mimeType: 'video/mp4;codecs=vp9',
+    })
+    const chunks: Blob[] = []
+    recorder.ondataavailable = (e) => chunks.push(e.data)
+    const stopped = new Promise((resolve) => (recorder.onstop = resolve))
+    recorder.start()
+    const start = performance.now()
+    await new Promise<void>((resolve) => {
+      const draw = () => {
+        const t = (performance.now() - start) / 2000
+        ctx.fillStyle = '#d8f3dc'
+        ctx.fillRect(0, 0, 320, 240)
+        ctx.fillStyle = '#2d6a4f'
+        ctx.fillRect(t * 260, 90, 60, 60)
+        if (t < 1) requestAnimationFrame(draw)
+        else resolve()
+      }
+      draw()
+    })
+    recorder.stop()
+    await stopped
+    return [...new Uint8Array(await new Blob(chunks).arrayBuffer())]
+  })
+  return Buffer.from(bytes)
+}
+
+test('a video gets a still from itself as its poster, so it can be the cover', async ({ page }) => {
+  await page.goto('/vefstjorn/projects')
+  const clip = await recordedMp4(page)
+  await page.getByRole('button', { name: 'Nýtt' }).click()
+  await page.getByLabel('Heiti').fill(`Myndband ${tag()}`)
+  const gallery = page.getByRole('group', { name: 'Myndir og myndbönd' })
+  await gallery.getByLabel('Bæta við myndbandi').setInputFiles({
+    name: 'klippa.mp4',
+    mimeType: 'video/mp4',
+    buffer: clip,
+  })
+  const item = gallery.getByRole('listitem')
+  await expect(item).toContainText('Myndband 1', { timeout: 15_000 })
+  await expect(item.getByRole('button', { name: 'Skipta um mynd fyrir myndband' })).toBeVisible()
+  const cover = item.getByRole('radio', { name: 'Forsíðumynd' })
+  await expect(cover).toBeEnabled()
+  // No photo in the gallery, so the video's poster is the cover.
+  await expect(cover).toBeChecked()
+  const poster = item.locator('img')
+  await expect.poll(() => poster.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(320)
+})
+
 test('a video PUT larger than declared is refused and nothing is stored', async ({ page }) => {
   const ticket = await page.request.post('/api/cms/admin/media/video', {
     data: { size: 1000, type: 'video/mp4' },

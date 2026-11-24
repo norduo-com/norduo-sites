@@ -112,24 +112,64 @@ export const VIDEO_ACCEPT = 'video/mp4,.mp4'
 
 const isMp4 = (file: File) => file.type === VIDEO_TYPE || (!file.type && /\.mp4$/i.test(file.name))
 
-/** The video's frame size, if this browser can read it; the site uses it to reserve space. */
-function videoSize(file: File): Promise<{ width: number; height: number } | null> {
+interface VideoProbe {
+  /** Frame size, for the site to reserve space. */
+  size: { width: number; height: number } | null
+  /** A still from about 1 s in (many clips open black or fade in), to use as the poster. */
+  frame: File | null
+}
+
+const FRAME_AT_SECONDS = 1
+
+/**
+ * What this browser can read from the video: its size and a still. Both are null where it
+ * can't decode the codec (e.g. HEVC in Chrome on some systems); the upload goes on anyway.
+ */
+function probeVideo(file: File): Promise<VideoProbe> {
   return new Promise((resolve) => {
     const video = document.createElement('video')
     const src = URL.createObjectURL(file)
-    const done = (size: { width: number; height: number } | null) => {
+    let size: VideoProbe['size'] = null
+    const done = (frame: File | null) => {
       clearTimeout(timer)
       URL.revokeObjectURL(src)
       video.removeAttribute('src')
-      resolve(size)
+      video.load()
+      resolve({ size, frame })
     }
     const timer = setTimeout(() => {
       done(null)
-    }, 5000)
-    video.preload = 'metadata'
+    }, 8000)
+    video.preload = 'auto'
     video.muted = true
+    video.playsInline = true
     video.onloadedmetadata = () => {
-      done(video.videoWidth ? { width: video.videoWidth, height: video.videoHeight } : null)
+      if (!video.videoWidth) {
+        done(null)
+        return
+      }
+      size = { width: video.videoWidth, height: video.videoHeight }
+      const length = Number.isFinite(video.duration) ? video.duration : 0
+      video.currentTime = Math.min(FRAME_AT_SECONDS, length / 2)
+    }
+    video.onseeked = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = video.videoWidth
+      canvas.height = video.videoHeight
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        done(null)
+        return
+      }
+      ctx.drawImage(video, 0, 0)
+      canvas.toBlob(
+        (blob) => {
+          const name = `${file.name.replace(/\.[^.]*$/, '')}.jpg`
+          done(blob ? new File([blob], name, { type: 'image/jpeg' }) : null)
+        },
+        'image/jpeg',
+        0.92,
+      )
     }
     video.onerror = () => {
       done(null)
@@ -167,16 +207,17 @@ function put(
 /**
  * Uploads one MP4 straight to R2 through a presigned URL that signs its size, then adds its
  * media row. A failed PUT gets one more try with a new URL. Throws `UploadError`.
+ * Also returns a still from the video, if the browser could make one, for `uploadImage`.
  */
 export async function uploadVideo(
   api: AdminApi,
   file: File,
   onProgress?: (share: number) => void,
-): Promise<MediaInfo> {
+): Promise<{ media: MediaInfo; frame: File | null }> {
   try {
     if (!isMp4(file)) throw new UploadError('videoType')
     if (file.size > MAX_VIDEO_BYTES) throw new UploadError('videoTooBig')
-    const size = await videoSize(file)
+    const { size, frame } = await probeVideo(file)
     for (let attempt = 1; ; attempt++) {
       const ticket = await api.videoTicket({ size: file.size, type: VIDEO_TYPE })
       try {
@@ -185,7 +226,8 @@ export async function uploadVideo(
         if (attempt >= 2) throw err
         continue
       }
-      return await api.completeVideo(ticket.id, { filename: file.name, ...size })
+      const media = await api.completeVideo(ticket.id, { filename: file.name, ...size })
+      return { media, frame }
     }
   } catch (err) {
     if (err instanceof ApiError && err.status === 413) throw new UploadError('videoTooBig')
