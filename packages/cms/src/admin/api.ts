@@ -1,5 +1,5 @@
 import type { MediaInfo } from '../media'
-import type { AdminDocument, VideoTicket } from '../server'
+import type { AdminDocument, AdminMedia, MediaUses, VideoTicket } from '../server'
 
 export type Status = AdminDocument['status']
 
@@ -62,6 +62,17 @@ export function adminApi(base: string) {
     /** Adds the video's media row once its PUT is done. */
     completeVideo: (id: string, input: { filename: string; width?: number; height?: number }) =>
       request<MediaInfo>('POST', `/media/video/${encodeURIComponent(id)}`, input),
+    /** Myndasafn: every photo with the documents that use it. */
+    listMedia: () => request<AdminMedia[]>('GET', '/media'),
+    setAlt: (id: string, alt: string) =>
+      request<{ ok: true }>('PATCH', `/media/${encodeURIComponent(id)}`, { alt }),
+    mediaUses: (id: string) => request<MediaUses>('GET', `/media/${encodeURIComponent(id)}/uses`),
+    /** `removeFromGalleries` once the editor has confirmed it; refused while an image() uses it. */
+    removeMedia: (id: string, removeFromGalleries: boolean) =>
+      request<{ ok: true }>(
+        'DELETE',
+        `/media/${encodeURIComponent(id)}${removeFromGalleries ? '?galleries=remove' : ''}`,
+      ),
   }
 }
 

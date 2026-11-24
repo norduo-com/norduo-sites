@@ -8,6 +8,7 @@ import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
 import { AdminContext } from './context'
 import { Editor, type EditorDoc } from './Editor'
+import { MediaScreen } from './MediaScreen'
 
 /**
  * Admin shell. Screens are generated from the site's config: one list + editor per
@@ -144,6 +145,8 @@ export function Vefstjorn({
             />
           ) : screen === PAGES_SCREEN && hasPagesScreen ? (
             pageScreen()
+          ) : screen === MEDIA_SCREEN ? (
+            <MediaScreen api={api} config={config} base={base} />
           ) : screen ? (
             <>
               <h1 className="text-2xl">{labelOf(screen)}</h1>

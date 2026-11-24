@@ -13,6 +13,8 @@
   // Override locally in .dev.vars (see .dev.vars.example).
   "vars": {
     "ENVIRONMENT": "production",
+    // Tags Sentry events. The DSNs are secrets: SENTRY_DSN (Worker), SENTRY_ADMIN_DSN (Vefstjórn).
+    "SENTRY_ENVIRONMENT": "production",
     // Cloudflare Access, checked on /api/cms/admin. Not secrets: the AUD tag only names the app.
     "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
     "ACCESS_AUD": "bb9203f65bfe1cc17339ea4400a880c9ba18bd877b018573a7753229397950b1",
@@ -31,6 +33,8 @@
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
   // Photo widths, blurred previews and JPEG → WebP masters. Local dev uses Sharp.
   "images": { "binding": "IMAGES" },
+  // The deployed version's id, used as the Sentry release.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Nightly backup of D1 to R2 (03:00 UTC).
   "triggers": { "crons": ["0 3 * * *"] },
   "env": {
@@ -44,6 +48,7 @@
       "routes": [],
       "vars": {
         "ENVIRONMENT": "production",
+        "SENTRY_ENVIRONMENT": "preview",
         "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
         // AUD of the Access app over the whole preview Worker (all traffic).
         "ACCESS_AUD": "94cccdfbe0601a1fc30271c13e2de51982572c4cbe407341c9b65d0350b3e6f7",
@@ -59,6 +64,7 @@
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
       "images": { "binding": "IMAGES" },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "triggers": { "crons": [] },
     },
   },
