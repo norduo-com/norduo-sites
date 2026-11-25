@@ -124,6 +124,11 @@ async function recordedMp4(page: Page): Promise<Buffer> {
 
 test('a video gets a still from itself as its poster, so it can be the cover', async ({ page }) => {
   await page.goto('/vefstjorn/projects')
+  // WebKit on Linux (CI) has no MediaRecorder to make the clip; WebKit on macOS does.
+  test.skip(
+    !(await page.evaluate(() => 'MediaRecorder' in window)),
+    'No MediaRecorder in this browser build',
+  )
   const clip = await recordedMp4(page)
   await page.getByRole('button', { name: 'Nýtt' }).click()
   await page.getByLabel('Heiti').fill(`Myndband ${tag()}`)
