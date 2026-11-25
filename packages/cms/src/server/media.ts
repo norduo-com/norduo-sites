@@ -30,7 +30,7 @@ export const masterKey = (id: string) => `media/${id}.webp`
 export const tmpKey = (id: string) => `tmp/${id}`
 
 const MASTER_QUALITY = 90
-const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
+export const ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 const streamOf = (bytes: Bytes) => new Response(bytes).body as ReadableStream<Uint8Array>
 type Bytes = Uint8Array<ArrayBuffer>
@@ -154,7 +154,7 @@ async function store(
 
 export interface MediaFailure {
   error: string
-  status: 404 | 413 | 415 | 422 | 501
+  status: 403 | 404 | 413 | 415 | 422 | 501
 }
 
 /**

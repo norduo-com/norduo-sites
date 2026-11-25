@@ -23,7 +23,7 @@
       "dependsOn": ["build"],
       "outputs": ["playwright-report/**", "test-results/**"],
       "inputs": ["$TURBO_DEFAULT$", ".dev.vars", "!**/*.md"],
-      "passThroughEnv": ["CI"]
+      "passThroughEnv": ["CI", "PLAYWRIGHT_BROWSERS_PATH"]
     },
     "deploy": {
       "dependsOn": ["build"],

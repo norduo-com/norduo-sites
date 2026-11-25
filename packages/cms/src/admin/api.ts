@@ -1,5 +1,5 @@
 import type { MediaInfo } from '../media'
-import type { AdminDocument, AdminMedia, MediaUses } from '../server'
+import type { AdminDocument, AdminMedia, MediaUses, VideoTicket } from '../server'
 
 export type Status = AdminDocument['status']
 
@@ -56,6 +56,12 @@ export function adminApi(base: string) {
         body: file,
       }),
     makeMaster: (id: string) => send<MediaInfo>('POST', `/media/raw/${encodeURIComponent(id)}`),
+    /** A presigned URL for one MP4 of exactly `size` bytes; `uploadVideo` PUTs it there. */
+    videoTicket: (input: { size: number; type: string }) =>
+      request<VideoTicket>('POST', '/media/video', input),
+    /** Adds the video's media row once its PUT is done. */
+    completeVideo: (id: string, input: { filename: string; width?: number; height?: number }) =>
+      request<MediaInfo>('POST', `/media/video/${encodeURIComponent(id)}`, input),
     /** Myndasafn: every photo with the documents that use it. */
     listMedia: () => request<AdminMedia[]>('GET', '/media'),
     setAlt: (id: string, alt: string) =>
