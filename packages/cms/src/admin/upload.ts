@@ -121,61 +121,79 @@ interface VideoProbe {
 
 const FRAME_AT_SECONDS = 1
 
+/** Whether `event` fires on the video before an error or `ms` passes. */
+function fired(video: HTMLVideoElement, event: string, ms: number) {
+  return new Promise<boolean>((resolve) => {
+    const finish = (ok: boolean) => () => {
+      clearTimeout(timer)
+      video.removeEventListener(event, yes)
+      video.removeEventListener('error', no)
+      resolve(ok)
+    }
+    const yes = finish(true)
+    const no = finish(false)
+    const timer = setTimeout(no, ms)
+    video.addEventListener(event, yes)
+    video.addEventListener('error', no)
+  })
+}
+
+/** A still of the video at about 1 s, as a JPEG for `uploadImage`, or null. */
+async function stillOf(video: HTMLVideoElement, filename: string): Promise<File | null> {
+  // iOS Safari loads no frames for a video that hasn't played, so seeking never finishes.
+  // A muted, inline video may play without a tap; it's paused again straight away.
+  await Promise.race([video.play().catch(() => undefined), wait(3000)])
+  video.pause()
+  const length = Number.isFinite(video.duration) ? video.duration : 0
+  const seeked = fired(video, 'seeked', 8000)
+  video.currentTime = Math.min(FRAME_AT_SECONDS, length / 2)
+  if (!(await seeked)) return null
+  if (
+    video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA &&
+    !(await fired(video, 'loadeddata', 4000))
+  )
+    return null
+  const canvas = document.createElement('canvas')
+  canvas.width = video.videoWidth
+  canvas.height = video.videoHeight
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+  ctx.drawImage(video, 0, 0)
+  const blob = await toBlob(canvas, 'image/jpeg', 0.92)
+  return blob
+    ? new File([blob], `${filename.replace(/\.[^.]*$/, '')}.jpg`, { type: 'image/jpeg' })
+    : null
+}
+
 /**
  * What this browser can read from the video: its size and a still. Both are null where it
  * can't decode the codec (e.g. HEVC in Chrome on some systems); the upload goes on anyway.
  */
-function probeVideo(file: File): Promise<VideoProbe> {
-  return new Promise((resolve) => {
-    const video = document.createElement('video')
-    const src = URL.createObjectURL(file)
-    let size: VideoProbe['size'] = null
-    const done = (frame: File | null) => {
-      clearTimeout(timer)
-      URL.revokeObjectURL(src)
-      video.removeAttribute('src')
-      video.load()
-      resolve({ size, frame })
-    }
-    const timer = setTimeout(() => {
-      done(null)
-    }, 8000)
-    video.preload = 'auto'
-    video.muted = true
-    video.playsInline = true
-    video.onloadedmetadata = () => {
-      if (!video.videoWidth) {
-        done(null)
-        return
-      }
-      size = { width: video.videoWidth, height: video.videoHeight }
-      const length = Number.isFinite(video.duration) ? video.duration : 0
-      video.currentTime = Math.min(FRAME_AT_SECONDS, length / 2)
-    }
-    video.onseeked = () => {
-      const canvas = document.createElement('canvas')
-      canvas.width = video.videoWidth
-      canvas.height = video.videoHeight
-      const ctx = canvas.getContext('2d')
-      if (!ctx) {
-        done(null)
-        return
-      }
-      ctx.drawImage(video, 0, 0)
-      canvas.toBlob(
-        (blob) => {
-          const name = `${file.name.replace(/\.[^.]*$/, '')}.jpg`
-          done(blob ? new File([blob], name, { type: 'image/jpeg' }) : null)
-        },
-        'image/jpeg',
-        0.92,
-      )
-    }
-    video.onerror = () => {
-      done(null)
-    }
+async function probeVideo(file: File): Promise<VideoProbe> {
+  const video = document.createElement('video')
+  const src = URL.createObjectURL(file)
+  video.muted = true
+  video.playsInline = true
+  video.preload = 'auto'
+  // In the page but out of sight: iOS Safari won't play a video that isn't.
+  video.setAttribute('aria-hidden', 'true')
+  video.style.cssText =
+    'position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none'
+  document.body.appendChild(video)
+  try {
+    const loaded = fired(video, 'loadedmetadata', 8000)
     video.src = src
-  })
+    if (!(await loaded) || !video.videoWidth) return { size: null, frame: null }
+    const size = { width: video.videoWidth, height: video.videoHeight }
+    const frame = await stillOf(video, file.name).catch(() => null)
+    return { size, frame }
+  } finally {
+    video.pause()
+    video.remove()
+    video.removeAttribute('src')
+    video.load()
+    URL.revokeObjectURL(src)
+  }
 }
 
 /** One PUT of the whole file. XHR rather than fetch, for upload progress. */

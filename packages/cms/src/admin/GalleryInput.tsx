@@ -376,7 +376,7 @@ function Preview({ item }: { item: GalleryItem }) {
     return item.poster ? (
       <img src={imageUrl(item.poster.mediaId, 480)} alt="" className={thumb} />
     ) : (
-      <video src={videoUrl(item.mediaId)} preload="metadata" muted className={thumb} />
+      <video src={`${videoUrl(item.mediaId)}#t=0.1`} preload="metadata" muted className={thumb} />
     )
   }
   const provider = parseVideoLink(item.url)?.provider

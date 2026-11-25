@@ -304,7 +304,7 @@ function MediaCard({
     <li aria-label={item.filename} className="gap-3 bg-white flex flex-col rounded-card p-tp">
       {item.mime === VIDEO_TYPE ? (
         <video
-          src={videoUrl(item.id)}
+          src={`${videoUrl(item.id)}#t=0.1`}
           preload="metadata"
           muted
           controls

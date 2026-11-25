@@ -76,13 +76,18 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
 
   // The site serves the MP4 as stored, in byte ranges for seeking.
   const src = await items.nth(2).locator('video').getAttribute('src')
-  expect(src).toMatch(/^\/video\/[0-9a-f-]{36}\.mp4$/)
-  const part = await page.request.get(src ?? '', { headers: { range: 'bytes=0-99' } })
+  // #t=0.1 makes Safari draw a frame of a video that hasn't played.
+  expect(src).toMatch(/^\/video\/[0-9a-f-]{36}\.mp4#t=0\.1$/)
+  const path = (src ?? '').split('#')[0] ?? ''
+  const part = await page.request.get(path, { headers: { range: 'bytes=0-99' } })
   expect(part.status()).toBe(206)
   expect(part.headers()['content-range']).toBe(`bytes 0-99/${String(clip.length)}`)
 })
 
-/** A real 2 s MP4 (VP9, which Chromium can both record and decode) of a moving square. */
+/**
+ * A real 2 s MP4 of a moving square: VP9 in Chromium (which has no H.264 in Playwright),
+ * H.264 in WebKit. Each can decode what it records.
+ */
 async function recordedMp4(page: Page): Promise<Buffer> {
   const bytes = await page.evaluate(async () => {
     const canvas = document.createElement('canvas')
@@ -91,7 +96,7 @@ async function recordedMp4(page: Page): Promise<Buffer> {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('no canvas')
     const recorder = new MediaRecorder(canvas.captureStream(30), {
-      mimeType: 'video/mp4;codecs=vp9',
+      mimeType: ['video/mp4;codecs=vp9', 'video/mp4'].find((t) => MediaRecorder.isTypeSupported(t)),
     })
     const chunks: Blob[] = []
     recorder.ondataavailable = (e) => chunks.push(e.data)
