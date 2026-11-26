@@ -1,10 +1,11 @@
 import { type ReactNode, useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
-import type { Field, Fields } from '../fields'
+import type { BlockConfig, Field, Fields } from '../fields'
 import { choiceLabelKeys, fieldHelpKeys, fieldLabelKeys } from '../labels'
 import type { SeoField } from '../seo'
 import type { AdminDocument } from '../server'
+import { BlocksInput } from './BlocksInput'
 import { useAdmin } from './context'
 import { GalleryInput } from './GalleryInput'
 import { ImageInput } from './ImageInput'
@@ -33,6 +34,7 @@ interface Kinds {
   slug: { from: string }
   group: { fields: Fields }
   richText: { marks: Record<string, string> }
+  blocks: { blocks: Record<string, BlockConfig> }
 }
 const is = <K extends keyof Kinds>(f: Field, kind: K): f is Field & Kinds[K] => f.kind === kind
 
@@ -54,6 +56,7 @@ const SUPPORTED = new Set([
   'image',
   'gallery',
   'seo',
+  'blocks',
 ])
 
 export interface FieldInputProps {
@@ -80,7 +83,7 @@ export function FieldInput(props: FieldInputProps) {
   const id = `${idPrefix}-${path}`
   const label = t(fieldLabelKeys(owner, name), { ns: 'cms' })
   const help = t(fieldHelpKeys(owner, name), { ns: 'cms', defaultValue: '' })
-  const error = errorAt(errors, path, field.kind === 'group')
+  const error = errorAt(errors, path, field.kind === 'group' || field.kind === 'blocks')
   const describedBy = [help && `${id}-help`, error && `${id}-error`].filter(Boolean).join(' ')
   const a11y = {
     'aria-invalid': error ? true : undefined,
@@ -141,6 +144,19 @@ export function FieldInput(props: FieldInputProps) {
         value={value}
         doc={doc ?? {}}
         previewPath={previewPath}
+        errors={errors}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (is(field, 'blocks')) {
+    return (
+      <BlocksInput
+        path={path}
+        idPrefix={idPrefix}
+        blocks={field.blocks}
+        value={value}
         errors={errors}
         onChange={onChange}
       />
