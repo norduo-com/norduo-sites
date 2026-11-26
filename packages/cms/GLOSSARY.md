@@ -16,7 +16,7 @@ _Avoid_: Global, single
 One of a site's fixed set of public pages. It has a header, SEO fields and an ordered list of blocks. Editors fill and arrange pages but cannot create or delete them.
 _Avoid_: Route, screen
 
-**Block**:
+**Block** (UI: _Hluti_, listed under _Efni síðunnar_):
 A section of a page that an editor can add, remove or move, chosen from the block types that page allows. The site decides how each block type looks.
 _Avoid_: Component, widget, module
 

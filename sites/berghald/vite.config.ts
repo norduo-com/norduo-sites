@@ -12,4 +12,6 @@ export default defineConfig({
     reactRouter(),
   ],
   resolve: { tsconfigPaths: true },
+  // For Sentry. scripts/sourcemaps.sh uploads the maps and deletes them before deploy.
+  build: { sourcemap: true },
 })

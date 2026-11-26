@@ -13,9 +13,14 @@
   // Override locally in .dev.vars (see .dev.vars.example).
   "vars": {
     "ENVIRONMENT": "production",
+    // Tags Sentry events. The DSNs are secrets: SENTRY_DSN (Worker), SENTRY_ADMIN_DSN (Vefstjórn).
+    "SENTRY_ENVIRONMENT": "production",
     // Cloudflare Access, checked on /api/cms/admin. Not secrets: the AUD tag only names the app.
     "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
     "ACCESS_AUD": "bb9203f65bfe1cc17339ea4400a880c9ba18bd877b018573a7753229397950b1",
+    // Videos are PUT straight to this bucket with a presigned URL. The S3 token and account
+    // are secrets: R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY (docs/ops.md).
+    "R2_BUCKET": "berghald-media",
   },
   "d1_databases": [
     {
@@ -31,6 +36,8 @@
   // Machine translation of translatable fields after each save (Workers AI, free allowance).
   // Local dev and e2e use a fake translator instead (TRANSLATOR in .dev.vars).
   "ai": { "binding": "AI" },
+  // The deployed version's id, used as the Sentry release.
+  "version_metadata": { "binding": "CF_VERSION_METADATA" },
   // Nightly (03:00 UTC): backup of D1 to R2, and a retry of translations left pending.
   "triggers": { "crons": ["0 3 * * *"] },
   "env": {
@@ -44,9 +51,11 @@
       "routes": [],
       "vars": {
         "ENVIRONMENT": "production",
+        "SENTRY_ENVIRONMENT": "preview",
         "ACCESS_TEAM_DOMAIN": "norduo.cloudflareaccess.com",
         // AUD of the Access app over the whole preview Worker (all traffic).
         "ACCESS_AUD": "94cccdfbe0601a1fc30271c13e2de51982572c4cbe407341c9b65d0350b3e6f7",
+        "R2_BUCKET": "berghald-preview-media",
       },
       "d1_databases": [
         {
@@ -59,6 +68,7 @@
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
       "images": { "binding": "IMAGES" },
       "ai": { "binding": "AI" },
+      "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "triggers": { "crons": [] },
     },
   },

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, max, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
 import { type CmsConfig, type DocOf, pageFields, type PageOf, PAGES_SCREEN } from '../define'
 import { type Fields, schemaOf } from '../fields'
-import { mediaIdsOf } from '../media'
+import { mediaIdsOf, type MediaUse, mediaUsesOf, removeFromGalleries } from '../media'
 import { slugify, uniqueSlug } from '../slug'
 import {
   editLocale,
@@ -25,6 +25,7 @@ import {
   type Translator,
   workersAiTranslator,
 } from './translate'
+import { completeVideo, presignVideo, putLocalVideo } from './video'
 
 export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
 export {
@@ -34,6 +35,7 @@ export {
   type Translator,
   workersAiTranslator,
 } from './translate'
+export { createVideoRoute, type VideoTicket } from './video'
 
 export interface CmsBindings {
   DB: D1Database
@@ -50,6 +52,12 @@ export interface CmsBindings {
   AI?: Ai
   /** "fake" translates with `fakeTranslator` (local development and e2e, which have no AI). */
   TRANSLATOR?: string
+  /** Name of the bucket behind `MEDIA`: videos are PUT to it through R2's S3 API. */
+  R2_BUCKET?: string
+  /** Secrets for presigned video uploads: the account and a token scoped to the bucket. */
+  R2_ACCOUNT_ID?: string
+  R2_ACCESS_KEY_ID?: string
+  R2_SECRET_ACCESS_KEY?: string
 }
 
 export interface CmsHooks {
@@ -91,6 +99,35 @@ export interface AdminDocument {
   /** Translated locales: the state of each translatable text, keyed by its path. */
   translations: Translations | null
   updatedAt: number
+}
+
+/** A document that uses a photo; `title` is a collection item's title field, if it has one. */
+export interface MediaUseRef {
+  type: string
+  slug: string
+  title: string | null
+}
+
+/** The documents that use a photo, split by whether they block deleting it. */
+export interface MediaUses {
+  /** In an `image()` field: the photo can't be deleted until it's replaced there. */
+  image: MediaUseRef[]
+  /** Only in galleries: deleting the photo removes it from them. */
+  gallery: MediaUseRef[]
+}
+
+/** A photo in Myndasafn. `uses` comes from `media_refs`, one per document. */
+export interface AdminMedia {
+  id: string
+  filename: string
+  /** image/webp for a photo's master, video/mp4 for a video. */
+  mime: string
+  width: number | null
+  height: number | null
+  lqip: string | null
+  alt: string | null
+  createdAt: number
+  uses: { type: string; slug: string }[]
 }
 
 const CONTENT_VERSION = 'content_version'
@@ -378,6 +415,11 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
       if (email === null) return c.json({ error: 'Unauthorized' }, 401)
     }
     await next()
+  })
+
+  // Throws on purpose, to check that the site's error reporting sees Worker errors.
+  app.get('/admin/debug/error', () => {
+    throw new Error('Vefstjórn test error (GET /admin/debug/error)')
   })
 
   app.get('/admin/config', (c) =>
@@ -682,6 +724,197 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     const result = await masterFromRaw(c.env, c.req.param('id'))
     if ('status' in result) return refused(c, 'rawMaster', result)
     return c.json(result.media, result.created ? 201 : 200)
+  })
+
+  // Videos: a presigned URL first, the browser PUTs the MP4 straight to R2, then the row.
+  app.post('/admin/media/video', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { size?: unknown; type?: unknown } | null
+    const input = { size: body?.size, type: body?.type }
+    const result = await presignVideo(
+      c.env,
+      input,
+      (id, size) => `${c.req.path}/${id}/local?size=${String(size)}`,
+    )
+    if ('status' in result) return refused(c, 'videoUrl', result, input)
+    return c.json(result, 201)
+  })
+
+  // Stands in for R2 when there is no S3 token (local dev and tests only).
+  app.put('/admin/media/video/:id/local', async (c) => {
+    const result = await putLocalVideo(
+      c.env,
+      c.req.raw,
+      c.req.param('id'),
+      Number(c.req.query('size')),
+    )
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result)
+  })
+
+  app.post('/admin/media/video/:id', async (c) => {
+    const body = ((await c.req.json().catch(() => null)) ?? {}) as Record<string, unknown>
+    const result = await completeVideo(c.env, c.req.param('id'), body)
+    if ('status' in result) return refused(c, 'video', result)
+    return c.json(result.media, result.created ? 201 : 200)
+  })
+
+  // ---------- Myndasafn ----------
+
+  app.get('/admin/media', async (c) => {
+    const db = drizzle(c.env.DB)
+    const [rows, refs] = await Promise.all([
+      db
+        .select({
+          id: media.id,
+          filename: media.filename,
+          mime: media.mime,
+          width: media.width,
+          height: media.height,
+          lqip: media.lqip,
+          alt: media.alt,
+          createdAt: media.createdAt,
+        })
+        .from(media)
+        .orderBy(desc(media.createdAt)),
+      db
+        .selectDistinct({
+          mediaId: mediaRefs.mediaId,
+          type: mediaRefs.docType,
+          slug: mediaRefs.docSlug,
+        })
+        .from(mediaRefs),
+    ])
+    const usesOf = new Map<string, AdminMedia['uses']>()
+    for (const { mediaId, type, slug } of refs)
+      usesOf.set(mediaId, [...(usesOf.get(mediaId) ?? []), { type, slug }])
+    return c.json(
+      rows.map((r): AdminMedia => ({
+        ...r,
+        createdAt: r.createdAt.getTime(),
+        uses: usesOf.get(r.id) ?? [],
+      })),
+    )
+  })
+
+  const altInput = z.object({ alt: z.string().trim().max(300) })
+
+  // Alt lives on the photo, so editing it here changes it everywhere the photo is shown.
+  app.patch('/admin/media/:id', async (c) => {
+    const body = altInput.safeParse(await c.req.json().catch(() => null))
+    if (!body.success) return c.json({ error: z.treeifyError(body.error) }, 400)
+    const db = drizzle(c.env.DB)
+    const id = c.req.param('id')
+    const [updated] = await db.batch([
+      db
+        .update(media)
+        .set({ alt: body.data.alt || null })
+        .where(eq(media.id, id))
+        .returning({ id: media.id }),
+      bumpContentVersion(db),
+    ])
+    if (updated.length === 0) return c.json({ error: 'notFound' }, 404)
+    return c.json({ ok: true })
+  })
+
+  /**
+   * The documents that use a photo, read through `media_refs`, each with how it uses the
+   * photo. A document counts as an `image` use if any of its locales has it in an `image()`.
+   */
+  async function documentsUsing(db: Db, id: string) {
+    const refs = await db
+      .selectDistinct({ type: mediaRefs.docType, slug: mediaRefs.docSlug })
+      .from(mediaRefs)
+      .where(eq(mediaRefs.mediaId, id))
+    const rows = refs.length
+      ? await db
+          .select({
+            id: documents.id,
+            type: documents.type,
+            slug: documents.slug,
+            locale: documents.locale,
+            data: documents.data,
+          })
+          .from(documents)
+          // A subquery, not one condition per document: D1 allows 100 bound parameters.
+          .where(
+            sql`exists (select 1 from ${mediaRefs} where ${mediaRefs.mediaId} = ${id}
+              and ${mediaRefs.docType} = ${documents.type} and ${mediaRefs.docSlug} = ${documents.slug})`,
+          )
+      : []
+    const out: (MediaUseRef & { use: MediaUse; rows: typeof rows; fields: Fields })[] = []
+    for (const ref of refs) {
+      const fields = fieldsOf(ref.type, ref.slug)
+      if (!fields) continue
+      const own = rows.filter((r) => r.type === ref.type && r.slug === ref.slug)
+      const uses = own.map((r) => mediaUsesOf(fields, r.data).get(id))
+      if (!uses.some(Boolean)) continue
+      const titleField = Object.hasOwn(collections, ref.type)
+        ? collections[ref.type]?.titleField
+        : undefined
+      const title = titleField
+        ? (own.find((r) => r.locale === config.site.defaultLocale) ?? own[0])?.data[titleField]
+        : undefined
+      out.push({
+        type: ref.type,
+        slug: ref.slug,
+        title: typeof title === 'string' && title ? title : null,
+        use: uses.includes('image') ? 'image' : 'gallery',
+        rows: own,
+        fields,
+      })
+    }
+    return out
+  }
+
+  const usesBody = (docs: Awaited<ReturnType<typeof documentsUsing>>): MediaUses => ({
+    image: docs
+      .filter((d) => d.use === 'image')
+      .map(({ type, slug, title }) => ({ type, slug, title })),
+    gallery: docs
+      .filter((d) => d.use === 'gallery')
+      .map(({ type, slug, title }) => ({ type, slug, title })),
+  })
+
+  app.get('/admin/media/:id/uses', async (c) => {
+    const id = c.req.param('id')
+    const db = drizzle(c.env.DB)
+    const exists = await db.select({ id: media.id }).from(media).where(eq(media.id, id)).get()
+    if (!exists) return c.json({ error: 'notFound' }, 404)
+    return c.json(usesBody(await documentsUsing(db, id)))
+  })
+
+  /**
+   * Deletes a photo. Refused while an `image()` field uses it (it must be replaced there
+   * first). Galleries that have it lose it, but only with `?galleries=remove`, which Vefstjórn
+   * sends after the editor confirms.
+   */
+  app.delete('/admin/media/:id', async (c) => {
+    const id = c.req.param('id')
+    const db = drizzle(c.env.DB)
+    const row = await db.select({ key: media.key }).from(media).where(eq(media.id, id)).get()
+    if (!row) return c.json({ error: 'notFound' }, 404)
+    const docs = await documentsUsing(db, id)
+    const uses = usesBody(docs)
+    if (uses.image.length) return c.json({ error: 'inUse', uses }, 409)
+    if (uses.gallery.length && c.req.query('galleries') !== 'remove')
+      return c.json({ error: 'inGalleries', uses }, 409)
+
+    const now = new Date()
+    await db.batch([
+      db.delete(mediaRefs).where(eq(mediaRefs.mediaId, id)),
+      ...docs.flatMap((d) =>
+        d.rows.map((r) =>
+          db
+            .update(documents)
+            .set({ data: removeFromGalleries(d.fields, r.data, id), updatedAt: now })
+            .where(eq(documents.id, r.id)),
+        ),
+      ),
+      db.delete(media).where(eq(media.id, id)),
+      bumpContentVersion(db),
+    ])
+    await c.env.MEDIA.delete(row.key)
+    return c.json({ ok: true })
   })
 
   return app

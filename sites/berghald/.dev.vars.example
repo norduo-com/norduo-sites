@@ -1,3 +1,10 @@
 ENVIRONMENT=development
+SENTRY_ENVIRONMENT=development
+# Sentry is off unless these are set (DSNs from the berghald-server and berghald-vefstjorn projects).
+# SENTRY_DSN=
+# SENTRY_ADMIN_DSN=
+# Leave the R2 S3 token out locally: videos are then PUT to the Worker, which checks them the
+# same way R2 checks a presigned URL. To try real presigned uploads, set R2_ACCOUNT_ID,
+# R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (docs/ops.md).
 # Local dev and e2e have no Workers AI: translations are "[en] <Icelandic text>".
 TRANSLATOR=fake

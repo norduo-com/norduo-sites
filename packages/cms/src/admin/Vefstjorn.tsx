@@ -8,6 +8,7 @@ import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
 import { AdminContext } from './context'
 import type { EditorDoc } from './Editor'
+import { MediaScreen } from './MediaScreen'
 import { LocalizedEditor } from './TranslationEditor'
 
 /**
@@ -145,6 +146,8 @@ export function Vefstjorn({
             />
           ) : screen === PAGES_SCREEN && hasPagesScreen ? (
             pageScreen()
+          ) : screen === MEDIA_SCREEN ? (
+            <MediaScreen api={api} config={config} base={base} />
           ) : screen ? (
             <>
               <h1 className="text-2xl">{labelOf(screen)}</h1>
