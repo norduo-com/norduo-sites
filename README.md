@@ -83,4 +83,4 @@ Sentry: create a Worker project and a Vefstjórn (React) project, then `npx wran
 
 ## Not set up yet
 
-These are in the architecture doc and get added with the features that use them: TanStack Query, React Hook Form, react-i18next, React Three Fiber, Motion, Lenis, Turnstile, Google Analytics, image transformations and the "Þýða á ensku" translation.
+These are in the architecture doc and get added with the features that use them: TanStack Query, React Hook Form, react-i18next, React Three Fiber, Motion, Lenis, Turnstile, Google Analytics, image transformations.

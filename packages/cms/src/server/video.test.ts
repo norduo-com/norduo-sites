@@ -180,8 +180,14 @@ describe('POST /admin/media/video/:id', () => {
       { kind: 'embed', url: 'https://vimeo.com/76979871' },
     ])
     expect(ok.status).toBe(201)
-    const refs = await db.d1.prepare('select media_id from media_refs').all()
-    expect(refs.results).toEqual([{ media_id: media.id }])
+    const refs = await db.d1
+      .prepare('select locale, media_id from media_refs order by locale')
+      .all()
+    // One per locale: the English row follows the Icelandic photos.
+    expect(refs.results).toEqual([
+      { locale: 'en', media_id: media.id },
+      { locale: 'is', media_id: media.id },
+    ])
 
     const unknown = await save([{ kind: 'video', mediaId: crypto.randomUUID() }])
     expect(unknown.status).toBe(422)

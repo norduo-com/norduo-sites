@@ -5,7 +5,8 @@ import type { CollectionConfig } from '../define'
 import { collectionLabelKey } from '../labels'
 import type { AdminDocument } from '../server'
 import type { AdminApi } from './api'
-import { Editor, type EditorDoc } from './Editor'
+import type { EditorDoc } from './Editor'
+import { LocalizedEditor } from './TranslationEditor'
 
 const NEW = Symbol('new')
 
@@ -120,7 +121,7 @@ export function CollectionScreen({
         {current ? (
           <>
             {current.slug === null && <h2 className="mb-4 text-xl">{t('editor.new')}</h2>}
-            <Editor
+            <LocalizedEditor
               // A fresh editor per opened item, so unsaved edits never leak between items.
               key={session}
               api={api}
@@ -131,7 +132,7 @@ export function CollectionScreen({
               doc={current}
               onSaved={(saved) => {
                 setItems((list) => {
-                  const doc = { ...saved, locale: '', updatedAt: Date.now() }
+                  const doc = { ...saved, locale: '', translations: null, updatedAt: Date.now() }
                   const all = list ?? []
                   return all.some((i) => i.slug === saved.slug)
                     ? all.map((i) => (i.slug === saved.slug ? doc : i))
