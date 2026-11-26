@@ -30,7 +30,7 @@ test('Vefstjórn refuses to save an item without a name', async ({ page }) => {
   await page.goto('/vefstjorn/equipment')
   await page.getByRole('button', { name: 'Nýtt' }).click()
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Þennan reit þarf að fylla út.')).toBeVisible()
+  await expect(page.getByText('Þennan reit þarf að fylla út.', { exact: true })).toBeVisible()
 })
 
 test('deleting an item removes it from the public site', async ({ page }) => {

@@ -12,15 +12,16 @@ export default defineConfig({
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },
     { name: 'mobile', use: { ...devices['Pixel 7'] } },
-    // Safari can't encode WebP, so photo upload takes the JPEG path there (issue #27).
+    // Safari can't encode WebP, so photo upload takes the JPEG path there (issue #27), and it
+    // only loads a video's frames once it has played, so the poster still needs a play first.
     {
       name: 'webkit',
-      testMatch: /photos\.spec/,
+      testMatch: /photos\.spec|gallery\.spec/,
       use: { ...devices['Desktop Safari'] },
     },
     {
       name: 'iphone',
-      testMatch: /photos\.spec/,
+      testMatch: /photos\.spec|gallery\.spec/,
       use: { ...devices['iPhone 15'] },
     },
   ],

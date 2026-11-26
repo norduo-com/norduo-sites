@@ -70,7 +70,10 @@ test('a photo in a gallery is removed from it after confirming', async ({ page }
   const title = unique('Garður')
   const slug = await createItem(page, 'projects', {
     title,
-    photos: [{ mediaId: id }, { mediaId: keep }],
+    photos: [
+      { kind: 'image', mediaId: id },
+      { kind: 'image', mediaId: keep },
+    ],
   })
 
   await page.reload()
@@ -85,7 +88,7 @@ test('a photo in a gallery is removed from it after confirming', async ({ page }
 
   const project = await page.request.get(`/api/cms/admin/content/projects/${slug}`)
   const { data } = (await project.json()) as { data: { photos: { mediaId: string }[] } }
-  expect(data.photos).toEqual([{ mediaId: keep }])
+  expect(data.photos).toEqual([{ kind: 'image', mediaId: keep }])
   await page.reload()
   await expect(card(page, filename)).toHaveCount(0)
 })
