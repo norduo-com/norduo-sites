@@ -2,6 +2,17 @@
 
 Checked commands for looking at a deployed site. Run them from `sites/<name>` (wrangler reads its `wrangler.jsonc`). Names below are Berghald's; the PR preview uses `berghald-preview` and `berghald-preview-media`.
 
+## Secrets
+
+The PR preview Worker only ever gets version uploads, never a deploy, so its secrets go on a version; new versions inherit them. `secret put` there fails with "latest version isn't deployed".
+
+| Worker     | Command                                                 |
+| ---------- | ------------------------------------------------------- |
+| production | `npx wrangler secret put <NAME>`                        |
+| preview    | `npx wrangler versions secret put <NAME> --env preview` |
+
+Without `--env preview`, wrangler warns about multiple environments and saves nothing. Check with `npx wrangler secret list` (production) or `npx wrangler versions view <id> --env preview`, with the id from `npx wrangler versions list --env preview`; `versions view` sometimes hangs, so run it in the background.
+
 ## PR preview
 
 - **URL of a PR's preview**, from its branch (quote the URL: zsh treats `?` as a glob):
@@ -20,32 +31,28 @@ Checked commands for looking at a deployed site. Run them from `sites/<name>` (w
 
 ## Video upload setup
 
-Videos are PUT from the browser straight to R2 with a presigned URL, so each bucket needs a CORS rule and each Worker an S3 token. Done once per bucket, in the dashboard (wrangler can't make the token).
+Videos are PUT from the browser straight to R2 with a presigned URL, so each bucket needs a CORS rule and each Worker an S3 token for its bucket. Done once per site.
 
-1. **CORS rule:** Dashboard → R2 → `berghald-media` → Settings → CORS policy → add:
+1. **CORS rule** (an agent can do this): write `cors.json` in wrangler's format, then `npx wrangler r2 bucket cors set berghald-media --file cors.json` and check with `npx wrangler r2 bucket cors list berghald-media`.
 
    ```json
-   [
-     {
-       "AllowedOrigins": ["https://berghald.eythorkonrads.com", "https://berghald.is"],
-       "AllowedMethods": ["PUT"],
-       "AllowedHeaders": ["content-type"],
-       "MaxAgeSeconds": 3600
-     }
-   ]
+   {
+     "rules": [
+       {
+         "allowed": {
+           "origins": ["https://berghald.eythorkonrads.com", "https://berghald.is"],
+           "methods": ["PUT"],
+           "headers": ["content-type"]
+         },
+         "maxAgeSeconds": 3600
+       }
+     ]
+   }
    ```
 
-   On `berghald-preview-media`, use `"AllowedOrigins": ["*"]`: every PR has its own origin, and the presigned URL is what allows a PUT. Check with `npx wrangler r2 bucket cors list <bucket>`.
+   On `berghald-preview-media`, use `"origins": ["*"]`: every PR has its own origin, and the presigned URL is what allows a PUT.
 
-2. **S3 token:** Dashboard → R2 → Manage API tokens → Create API token: _Object Read & Write_, applied to that one bucket only. Then, from `sites/berghald`:
-
-   ```sh
-   npx wrangler secret put R2_ACCOUNT_ID          # the account ID shown on the R2 page
-   npx wrangler secret put R2_ACCESS_KEY_ID
-   npx wrangler secret put R2_SECRET_ACCESS_KEY
-   ```
-
-   For the preview Worker, make a token for `berghald-preview-media` and add `--env preview` to each. The bucket name is `R2_BUCKET` in `wrangler.jsonc`.
+2. **S3 token** (the user, in the dashboard: wrangler can't make it, and the secret shows once): R2 → API → Manage API tokens → Create Account API token: _Object Read & Write_, applied to that one bucket only. Then set `R2_ACCOUNT_ID` (the account ID on the R2 page), `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` with the commands in [Secrets](#secrets). The preview Worker gets its own token for `berghald-preview-media`. The bucket name is `R2_BUCKET` in `wrangler.jsonc`.
 
 Without these, adding a video fails with `501 noVideoUpload` (logged as `media upload refused`), and a PUT refused by CORS shows as `PUT network`.
 
@@ -79,4 +86,4 @@ A 302 to `cloudflareaccess.com` means the token isn't allowed on that Access app
 - **Check the Worker reports errors:** open `/api/cms/admin/debug/error` while logged in through Access. It throws on purpose; the event shows up in Sentry tagged with the environment (`production` or `preview`).
 - **Check Vefstjórn reports errors:** on any `/vefstjorn` screen, run `setTimeout(() => { throw new Error('Vefstjórn test') })` in the browser console. (An error thrown straight in the console isn't reported.)
 - **Projects:** `berghald-server` (Worker) and `berghald-vefstjorn` (browser) in the `norduo-au` org, EU region, IP storage off.
-- **DSNs:** `npx wrangler secret put SENTRY_DSN` (Worker project) and `SENTRY_ADMIN_DSN` (Vefstjórn project); add `--env preview` for the PR previews.
+- **DSNs:** `SENTRY_DSN` (Worker project) and `SENTRY_ADMIN_DSN` (Vefstjórn project), set with the commands in [Secrets](#secrets).

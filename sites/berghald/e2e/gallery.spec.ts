@@ -63,7 +63,7 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
   await gallery.getByRole('button', { name: 'Færa atriði 3 upp' }).click()
 
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Vistað')).toBeVisible()
+  await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
 
   await page.reload()
   await page.getByRole('button', { name: new RegExp(title) }).click()

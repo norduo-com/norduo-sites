@@ -5,6 +5,7 @@ Read during review. These are judgement calls; anything mechanical is a lint rul
 ## Browsers
 
 - **Every browser path has a test in an engine that takes it.** Code that branches on what the browser can do (canvas encoders, image decoders, file pickers) is covered in Chromium _and_ WebKit (`desktop`/`mobile` and `webkit`/`iphone` in `sites/*/playwright.config.ts`). Safari can't encode WebP, so photo upload takes the JPEG path only there.
+- **Video in the browser is checked on a real iPhone.** Playwright's `iphone` project is desktop WebKit with a small screen; it doesn't copy iOS Safari's media rules (no frames until a video has played, no play outside the DOM). A PR that decodes, seeks or draws video lists an iPhone check on the PR preview in its test plan.
 - **Server checks accept what real browsers send.** A check on client-made data (size, format, metadata) is tested with data a real browser produced, not only with fixtures from Sharp or Node. Safari writes EXIF into every canvas JPEG.
 
 ## End-to-end tests
@@ -14,6 +15,7 @@ Read during review. These are judgement calls; anything mechanical is a lint rul
 ## Local vs production
 
 - **Local bindings are not production.** The local Images binding is Sharp: it can't read HEIC, ignores `draw`, `blur` and `quality`, and strips EXIF by itself (see `docs/architecture.md` §5). A test that passes only because local mode drops something says so, and the real check is listed for the PR preview.
+- **Production checks are tested below the route.** With `ENVIRONMENT=production` the Access middleware answers 401 before any route runs, so a production-only branch (e.g. `501 noVideoUpload`) is tested by calling the handler's function directly, not through `app.request`.
 - **CPU per request is counted.** Images binding calls cost about 7 ms CPU per MB of input on Workers Free. A request that makes several heavy calls is split, or retried on 503 from the client.
 
 ## Failures
