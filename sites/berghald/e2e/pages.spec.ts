@@ -71,7 +71,7 @@ test('home page blocks are added, reordered and removed, and the public page fol
   const removeButtons = page.getByRole('button', { name: /^Fjarlægja: / })
   await expect(page.getByRole('button', { name: 'Bæta við hluta' })).toBeVisible()
   while ((await removeButtons.count()) > 0) await removeButtons.first().click()
-  await expect(page.getByText('Engir hlutar á síðunni enn.')).toBeVisible()
+  await expect(page.getByText('Engir hlutar á síðunni enn.', { exact: true })).toBeVisible()
 
   await addBlock('Texti')
   const text = page.getByRole('region', { name: '1. Texti' })
@@ -96,7 +96,7 @@ test('home page blocks are added, reordered and removed, and the public page fol
   await page.goto('/')
   const headings = page.locator('[data-block] h2')
   await expect(headings).toHaveText([formHeading, textHeading])
-  await expect(page.getByText('Við hönnum og byggjum garða.')).toBeVisible()
+  await expect(page.getByText('Við hönnum og byggjum garða.', { exact: true })).toBeVisible()
 
   await page.goto('/vefstjorn/pages/home')
   await page.getByRole('button', { name: 'Fjarlægja: 2. Texti' }).click()
