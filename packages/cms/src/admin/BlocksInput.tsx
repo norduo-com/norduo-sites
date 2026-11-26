@@ -97,8 +97,10 @@ export function BlocksInput({
     update(swap(items), swap(liveKeys))
     // Keep focus on the moved block; at the top or bottom, on its other move button.
     const key = liveKeys[i] ?? ''
-    const end = by === -1 ? j === 0 : j === items.length - 1
-    setFocus(`${key}-${end ? (by === -1 ? 'down' : 'up') : by === -1 ? 'up' : 'down'}`)
+    const dir = by === -1 ? 'up' : 'down'
+    const atEnd = by === -1 ? j === 0 : j === items.length - 1
+    const opposite = dir === 'up' ? 'down' : 'up'
+    setFocus(`${key}-${atEnd ? opposite : dir}`)
   }
 
   const listError = errors[path]
@@ -106,7 +108,11 @@ export function BlocksInput({
   return (
     <fieldset ref={root} className="gap-3 flex flex-col">
       <legend className="mb-1 font-medium">{t('blocks.label')}</legend>
-      {listError && <p className="text-sm text-red-700">{t(listError.key)}</p>}
+      {listError && (
+        <p className="text-sm text-red-700">
+          {t(listError.key, { max: listError.max, min: listError.min })}
+        </p>
+      )}
       {items.length === 0 && <p className="text-sm text-neutral-500">{t('blocks.empty')}</p>}
       <ol className="gap-3 flex flex-col">
         {items.map((item, i) => {
