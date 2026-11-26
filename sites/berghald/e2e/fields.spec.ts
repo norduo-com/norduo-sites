@@ -12,7 +12,7 @@ test('a project saves services, work period, year and rich text, and gets a slug
   await page.getByRole('button', { name: 'Nýtt' }).click()
   await page.getByLabel('Heiti').fill(service)
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Vistað')).toBeVisible()
+  await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
 
   const title = `Garður í Garðabæ ${id}`
   await page.goto('/vefstjorn/projects')
@@ -31,8 +31,8 @@ test('a project saves services, work period, year and rich text, and gets a slug
   await page.getByRole('button', { name: 'Feitletrað' }).click()
 
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Vistað')).toBeVisible()
-  await expect(page.getByText(`gardur-i-gardabae-${id}`)).toBeVisible()
+  await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
+  await expect(page.getByText(`gardur-i-gardabae-${id}`, { exact: true })).toBeVisible()
 
   // Open it again from the list: everything comes back as saved.
   await page.reload()
@@ -50,10 +50,10 @@ test('Vefstjórn flags a year that is not a number and an invalid email', async 
   await page.getByLabel('Heiti').fill(`Prófun ${tag()}`)
   await page.getByLabel('Ár').fill('í fyrra')
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Ógilt gildi.')).toBeVisible()
+  await expect(page.getByText('Ógilt gildi.', { exact: true })).toBeVisible()
 
   await page.goto('/vefstjorn/settings')
   await page.getByLabel('Netfang').fill('berghald.is')
   await page.getByRole('button', { name: 'Vista' }).click()
-  await expect(page.getByText('Sláðu inn gilt netfang')).toBeVisible()
+  await expect(page.getByText(/^Sláðu inn gilt netfang/)).toBeVisible()
 })

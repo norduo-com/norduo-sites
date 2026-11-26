@@ -46,7 +46,7 @@ test('the home page header and SEO save and go straight to the public <head>', a
   await expect(page.locator('meta[name="description"]')).toHaveAttribute('content', lead)
   await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', seoTitle)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Við mótum lóðina þína')
-  await expect(page.getByText(lead)).toBeVisible()
+  await expect(page.getByText(lead, { exact: true })).toBeVisible()
 })
 
 test('home page blocks are added, reordered and removed, and the public page follows', async ({

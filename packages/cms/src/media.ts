@@ -40,6 +40,9 @@ export const imageUrl = (id: string, width: ImageWidth) => `/img/${String(width)
 export const imageSrcSet = (id: string) =>
   IMAGE_WIDTHS.map((w) => `${imageUrl(id, w)} ${String(w)}w`).join(', ')
 
+/** An MP4 from a gallery, served as it is (with byte ranges) by the site's `/video` route. */
+export const videoUrl = (id: string) => `/video/${id}.mp4`
+
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -65,7 +68,11 @@ function collect(field: Field, value: unknown, visit: (id: string, use: MediaUse
       for (const id of idOf(value)) visit(id, 'image')
       break
     case 'gallery':
-      for (const item of list) for (const id of idOf(item)) visit(id, 'gallery')
+      // A video's own id and its poster's; a YouTube/Vimeo link has neither.
+      for (const item of list) {
+        for (const id of idOf(item)) visit(id, 'gallery')
+        if (isRecord(item)) for (const id of idOf(item.poster)) visit(id, 'gallery')
+      }
       break
     case 'group':
     case 'seo':
@@ -114,7 +121,16 @@ function strip(field: Field, value: unknown, id: string): unknown {
   if (!Array.isArray(value) && !isRecord(value)) return value
   switch (field.kind) {
     case 'gallery':
-      return Array.isArray(value) ? value.filter((item) => !idOf(item).includes(id)) : value
+      // The item goes; a video whose poster goes keeps playing, but can no longer be the cover.
+      return Array.isArray(value)
+        ? value
+            .filter((item) => !idOf(item).includes(id))
+            .map((item: unknown) => {
+              if (!isRecord(item) || !idOf(item.poster).includes(id)) return item
+              const { poster: _poster, cover: _cover, ...rest } = item
+              return rest
+            })
+        : value
     case 'group':
     case 'seo':
       return nested.fields && isRecord(value) ? stripAll(nested.fields, value, id) : value

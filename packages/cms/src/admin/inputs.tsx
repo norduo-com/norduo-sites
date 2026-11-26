@@ -7,6 +7,7 @@ import type { SeoField } from '../seo'
 import type { AdminDocument } from '../server'
 import { BlocksInput } from './BlocksInput'
 import { useAdmin } from './context'
+import { GalleryInput } from './GalleryInput'
 import { ImageInput } from './ImageInput'
 import { RichTextInput } from './RichTextInput'
 import { SeoInput } from './SeoInput'
@@ -53,6 +54,7 @@ const SUPPORTED = new Set([
   'group',
   'richText',
   'image',
+  'gallery',
   'seo',
   'blocks',
 ])
@@ -374,6 +376,10 @@ export function FieldInput(props: FieldInputProps) {
         onChange={onChange}
       />,
     )
+  }
+
+  if (field.kind === 'gallery') {
+    return grouped(<GalleryInput id={id} value={value} onChange={onChange} />)
   }
 
   if (is(field, 'richText')) {

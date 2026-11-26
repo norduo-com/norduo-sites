@@ -130,6 +130,42 @@
     },
     "errorDetail": "Villukóði: {{detail}}"
   },
+  "gallery": {
+    "addPhotos": "Bæta við myndum",
+    "addVideo": "Bæta við myndbandi",
+    "link": "Tengill á YouTube eða Vimeo",
+    "addLink": "Bæta við tengli",
+    "help": "Myndbönd mega vera MP4, allt að 200 MB. Settu lengri myndbönd á YouTube eða Vimeo og bættu við tengli á þau.",
+    "uploadingPhotos": "Hleður upp mynd {{n}} af {{count}}…",
+    "uploadingVideo": "Hleður upp myndbandi… {{percent}}%",
+    "makingPoster": "Býr til mynd úr myndbandinu…",
+    "kind": {
+      "image": "Mynd {{n}}",
+      "video": "Myndband {{n}}",
+      "embed": "Tengt myndband {{n}}"
+    },
+    "provider": {
+      "youtube": "YouTube",
+      "vimeo": "Vimeo"
+    },
+    "cover": "Forsíðumynd",
+    "coverNeedsPoster": "(veldu fyrst mynd fyrir myndbandið)",
+    "choosePoster": "Velja mynd fyrir myndband",
+    "replacePoster": "Skipta um mynd fyrir myndband",
+    "removePoster": "Fjarlægja mynd fyrir myndband",
+    "moveUp": "Færa upp",
+    "moveDown": "Færa niður",
+    "remove": "Fjarlægja",
+    "moveUpItem": "Færa atriði {{n}} upp",
+    "moveDownItem": "Færa atriði {{n}} niður",
+    "removeItem": "Fjarlægja atriði {{n}}",
+    "errors": {
+      "link": "Sláðu inn tengil á myndband á YouTube eða Vimeo.",
+      "videoType": "Myndbandið þarf að vera MP4.",
+      "videoTooBig": "Myndbandið er stærra en 200 MB. Settu það á YouTube eða Vimeo og bættu við tengli á það.",
+      "videoFailed": "Ekki tókst að hlaða myndbandinu upp. Reyndu aftur."
+    }
+  },
   "seo": {
     "label": "Leitarvélar og deiling",
     "keyword": "Lykilorð",

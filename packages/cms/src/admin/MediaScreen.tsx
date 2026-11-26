@@ -2,8 +2,9 @@ import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { type CmsConfig, PAGES_SCREEN } from '../define'
+import { VIDEO_TYPE } from '../gallery'
 import { collectionLabelKey, pageLabelKey, singletonLabelKey } from '../labels'
-import { imageUrl } from '../media'
+import { imageUrl, videoUrl } from '../media'
 import type { AdminMedia, MediaUseRef, MediaUses } from '../server'
 import { type AdminApi, ApiError } from './api'
 import { inputClass } from './styles'
@@ -301,15 +302,25 @@ function MediaCard({
 
   return (
     <li aria-label={item.filename} className="gap-3 bg-white flex flex-col rounded-card p-tp">
-      <img
-        src={imageUrl(item.id, 480)}
-        alt={item.alt ?? ''}
-        width={item.width ?? undefined}
-        height={item.height ?? undefined}
-        loading="lazy"
-        style={item.lqip ? { backgroundImage: `url(${item.lqip})`, backgroundSize: 'cover' } : {}}
-        className="bg-neutral-100 aspect-[4/3] w-full rounded-img object-cover"
-      />
+      {item.mime === VIDEO_TYPE ? (
+        <video
+          src={`${videoUrl(item.id)}#t=0.1`}
+          preload="metadata"
+          muted
+          controls
+          className="bg-neutral-100 aspect-[4/3] w-full rounded-img object-cover"
+        />
+      ) : (
+        <img
+          src={imageUrl(item.id, 480)}
+          alt={item.alt ?? ''}
+          width={item.width ?? undefined}
+          height={item.height ?? undefined}
+          loading="lazy"
+          style={item.lqip ? { backgroundImage: `url(${item.lqip})`, backgroundSize: 'cover' } : {}}
+          className="bg-neutral-100 aspect-[4/3] w-full rounded-img object-cover"
+        />
+      )}
       <p className="text-sm break-all">{item.filename}</p>
       <p className="text-sm text-neutral-600">
         {item.uses.length

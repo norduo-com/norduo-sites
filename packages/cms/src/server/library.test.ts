@@ -125,7 +125,7 @@ describe('DELETE /admin/media/:id', () => {
   it('refuses while an image() field uses it, naming the document', async () => {
     const a = await uploaded()
     const slug = await create('equipment', { name: 'Kranabíll', photo: { mediaId: a.id } })
-    await create('projects', { title: 'Garður', photos: [{ mediaId: a.id }] })
+    await create('projects', { title: 'Garður', photos: [{ kind: 'image', mediaId: a.id }] })
 
     const res = await call('DELETE', `/admin/media/${a.id}?galleries=remove`)
     expect(res.status).toBe(409)
@@ -140,12 +140,15 @@ describe('DELETE /admin/media/:id', () => {
     const b = await uploaded()
     const slug = await create('projects', {
       title: 'Garður',
-      photos: [{ mediaId: a.id }, { mediaId: b.id }],
+      photos: [
+        { kind: 'image', mediaId: a.id },
+        { kind: 'image', mediaId: b.id },
+      ],
     })
     await call('PUT', `/admin/content/projects/${slug}`, {
       locale: 'en',
       status: 'published',
-      data: { title: 'Garden', photos: [{ mediaId: a.id }] },
+      data: { title: 'Garden', photos: [{ kind: 'image', mediaId: a.id }] },
     })
 
     const uses = await (await call('GET', `/admin/media/${a.id}/uses`)).json<MediaUses>()
@@ -167,9 +170,31 @@ describe('DELETE /admin/media/:id', () => {
           data: { photos: { mediaId: string }[] }
         }>()
       ).data.photos
-    expect(await photosOf('is')).toEqual([{ mediaId: b.id }])
+    expect(await photosOf('is')).toEqual([{ kind: 'image', mediaId: b.id }])
     expect(await photosOf('en')).toEqual([])
     expect((await list()).map((i) => [i.id, i.uses.length])).toEqual([[b.id, 1]])
+  })
+
+  it('deleting a video poster keeps the video, without its poster or cover', async () => {
+    const poster = await uploaded()
+    const video = crypto.randomUUID()
+    await db.d1
+      .prepare(
+        "insert into media (id, key, filename, mime, size) values (?, ?, 'klippa.mp4', 'video/mp4', 10)",
+      )
+      .bind(video, `media/${video}.mp4`)
+      .run()
+    const slug = await create('projects', {
+      title: 'Garður',
+      photos: [{ kind: 'video', mediaId: video, poster: { mediaId: poster.id }, cover: true }],
+    })
+    expect((await call('DELETE', `/admin/media/${poster.id}?galleries=remove`)).status).toBe(200)
+    const doc = await (
+      await call('GET', `/admin/content/projects/${slug}`)
+    ).json<{
+      data: { photos: unknown[] }
+    }>()
+    expect(doc.data.photos).toEqual([{ kind: 'video', mediaId: video }])
   })
 
   it('is a 404 for an unknown photo', async () => {
