@@ -4,13 +4,16 @@ import * as Sentry from '@sentry/cloudflare'
 import { isbot } from 'isbot'
 import { renderToReadableStream } from 'react-dom/server'
 import type { EntryContext, HandleErrorFunction, RouterContextProvider } from 'react-router'
-import { ServerRouter } from 'react-router'
+import { isRouteErrorResponse, ServerRouter } from 'react-router'
 
 export const streamTimeout = 5_000
 
 export const handleError: HandleErrorFunction = (error, { request }) => {
   // An aborted request (the visitor left) isn't a bug.
   if (request.signal.aborted) return
+  // Nor is a 4xx response: an unknown URL (mostly bots probing /wp-admin and the like) or a
+  // loader's deliberate 404. They'd fill the Sentry quota with noise.
+  if (isRouteErrorResponse(error) && error.status < 500) return
   Sentry.captureException(error)
   console.error(error)
 }
