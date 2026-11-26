@@ -189,24 +189,29 @@ describe('stripMetadata', () => {
 })
 
 describe('GET /img/<width>/<id>', () => {
-  it('serves each of the four widths, with format chosen from Accept', async () => {
-    const { id } = await uploaded(await photo('webp', 2560, 1920), 'image/webp')
-    for (const width of [480, 960, 1440, 1920]) {
-      const res = await getImage(`/${String(width)}/${id}`, 'image/webp,*/*')
-      expect(res.status).toBe(200)
-      expect(res.headers.get('content-type')).toBe('image/webp')
-      expect(res.headers.get('vary')).toBe('Accept')
-      expect(res.headers.get('cache-control')).toContain('immutable')
-      expect((await sizeOf(res)).width).toBe(width)
-    }
-    const avif = await getImage(`/960/${id}`, 'image/avif,image/webp')
-    expect(avif.headers.get('content-type')).toBe('image/avif')
-    // AVIF output stops at 1,200 px.
-    const wide = await getImage(`/1440/${id}`, 'image/avif,image/webp')
-    expect(wide.headers.get('content-type')).toBe('image/webp')
-    const old = await getImage(`/480/${id}`)
-    expect(old.headers.get('content-type')).toBe('image/jpeg')
-  })
+  // Seven Sharp transforms of a 2560 px master (AVIF among them) take about 5 s on CI runners.
+  it(
+    'serves each of the four widths, with format chosen from Accept',
+    { timeout: 20_000 },
+    async () => {
+      const { id } = await uploaded(await photo('webp', 2560, 1920), 'image/webp')
+      for (const width of [480, 960, 1440, 1920]) {
+        const res = await getImage(`/${String(width)}/${id}`, 'image/webp,*/*')
+        expect(res.status).toBe(200)
+        expect(res.headers.get('content-type')).toBe('image/webp')
+        expect(res.headers.get('vary')).toBe('Accept')
+        expect(res.headers.get('cache-control')).toContain('immutable')
+        expect((await sizeOf(res)).width).toBe(width)
+      }
+      const avif = await getImage(`/960/${id}`, 'image/avif,image/webp')
+      expect(avif.headers.get('content-type')).toBe('image/avif')
+      // AVIF output stops at 1,200 px.
+      const wide = await getImage(`/1440/${id}`, 'image/avif,image/webp')
+      expect(wide.headers.get('content-type')).toBe('image/webp')
+      const old = await getImage(`/480/${id}`)
+      expect(old.headers.get('content-type')).toBe('image/jpeg')
+    },
+  )
 
   it('never upscales a small master', async () => {
     const { id } = await uploaded(await photo('webp', 600, 400), 'image/webp')
