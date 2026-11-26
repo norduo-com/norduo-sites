@@ -56,6 +56,7 @@ test('home page blocks are added, reordered and removed, and the public page fol
   const id = crypto.randomUUID().slice(0, 8)
   const textHeading = `Um garðana ${id}`
   const formHeading = `Fáðu tilboð ${id}`
+  const secondHeading = `Hleðslur ${id}`
   const save = async () => {
     await page.getByRole('button', { name: 'Vista' }).click()
     await expect(page.getByRole('status')).toHaveText('Vistað')
@@ -98,11 +99,41 @@ test('home page blocks are added, reordered and removed, and the public page fol
   await expect(headings).toHaveText([formHeading, textHeading])
   await expect(page.getByText('Við hönnum og byggjum garða.', { exact: true })).toBeVisible()
 
+  // Blocks loaded from D1 keep their own rich text when moved, not just new ones.
   await page.goto('/vefstjorn/pages/home')
+  await addBlock('Texti')
+  const second = page.getByRole('region', { name: '3. Texti' })
+  await second.getByLabel('Fyrirsögn').fill(secondHeading)
+  await second.getByRole('textbox', { name: 'Texti' }).fill('Við hlöðum veggi úr grjóti.')
+  await save()
+  await page.reload()
+  await page.getByRole('button', { name: 'Færa upp: 3. Texti' }).click()
+  const body = (n: number) =>
+    page
+      .getByRole('region', { name: `${String(n)}. Texti` })
+      .getByRole('textbox', { name: 'Texti' })
+  await expect(body(2)).toHaveText('Við hlöðum veggi úr grjóti.')
+  await expect(body(3)).toHaveText('Við hönnum og byggjum garða.')
+  await save()
+
+  await page.goto('/')
+  await expect(headings).toHaveText([formHeading, secondHeading, textHeading])
+
+  await page.goto('/vefstjorn/pages/home')
+  await page.getByRole('button', { name: 'Fjarlægja: 3. Texti' }).click()
   await page.getByRole('button', { name: 'Fjarlægja: 2. Texti' }).click()
   await expect(page.getByRole('region', { name: /Texti$/ })).toHaveCount(0)
   await save()
 
   await page.goto('/')
   await expect(headings).toHaveText([formHeading])
+
+  // Removing the last block saves an empty page body.
+  await page.goto('/vefstjorn/pages/home')
+  await page.getByRole('button', { name: 'Fjarlægja: 1. Tilboðsform' }).click()
+  await save()
+  await page.reload()
+  await expect(page.getByText('Engir hlutar á síðunni enn.', { exact: true })).toBeVisible()
+  await page.goto('/')
+  await expect(page.locator('[data-block]')).toHaveCount(0)
 })
