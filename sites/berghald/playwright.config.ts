@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
 const port = 4173
+const e2eState = '.wrangler/e2e'
 
 export default defineConfig({
   testDir: './e2e',
@@ -28,7 +29,10 @@ export default defineConfig({
   // The build must contain .dev.vars (ENVIRONMENT=development): it turns off the Access
   // check and the page cache. CI copies .dev.vars.example before building.
   webServer: {
-    command: `pnpm db:migrate:local && pnpm preview --port ${port} --strictPort`,
+    // Each run starts from an empty D1 and R2 of its own, as on CI, so leftovers from a
+    // previous run can't pass or fail a test. `pnpm dev` keeps its data in .wrangler/state.
+    command: `rm -rf ${e2eState} && wrangler d1 migrations apply berghald --local --persist-to ${e2eState} && pnpm preview --port ${String(port)} --strictPort`,
+    env: { E2E_STATE: e2eState },
     port,
     reuseExistingServer: !process.env.CI,
   },

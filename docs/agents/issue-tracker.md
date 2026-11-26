@@ -21,6 +21,7 @@ Infer the repo from `git remote -v`; `gh` does this automatically when run insid
 1. Rebase on `origin/main` first (`git fetch && git rebase origin/main`), then push.
 2. After `gh pr create`, check `gh pr view <n> --json mergeable`. GitHub runs no `pull_request` workflow on a `CONFLICTING` PR: no checks, no preview, and nothing says why.
 3. Wait with `gh pr checks <n> --watch`. The preview link is the bot's comment on the PR (`gh pr view <n> --comments`).
+4. After the merge, watch the main run (`gh run list --branch main --limit 1`, then `gh run watch <id>`). The change is live only once "Deploy changed sites" is green; a red main run deploys nothing.
 
 ## Pull requests as a triage surface
 
