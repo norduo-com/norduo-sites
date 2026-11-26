@@ -87,3 +87,12 @@ A 302 to `cloudflareaccess.com` means the token isn't allowed on that Access app
 - **Check Vefstjórn reports errors:** on any `/vefstjorn` screen, run `setTimeout(() => { throw new Error('Vefstjórn test') })` in the browser console. (An error thrown straight in the console isn't reported.)
 - **Projects:** `berghald-server` (Worker) and `berghald-vefstjorn` (browser) in the `norduo-au` org, EU region, IP storage off.
 - **DSNs:** `SENTRY_DSN` (Worker project) and `SENTRY_ADMIN_DSN` (Vefstjórn project), set with the commands in [Secrets](#secrets).
+- **Read issues and events** (agents: the `sentry` CLI, signed in once by the user). `statsPeriod` takes only `24h` or `14d`:
+
+  ```sh
+  sentry api "projects/norduo-au/berghald-server/issues/?query=is:unresolved%20environment:production&statsPeriod=24h"
+  sentry api "organizations/norduo-au/issues/<id>/events/?full=true"   # privacy check: user, request headers/data/query/cookies
+  sentry api -X PUT "organizations/norduo-au/issues/<id>/" -F status=resolved
+  ```
+
+- **Live admin without the Access token:** the agent token opens only the PR preview. Drive the user's own browser session with Claude in Chrome, or ask the user.

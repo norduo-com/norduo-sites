@@ -194,3 +194,6 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           # Source map upload before deploy (sites/<name>/scripts/sourcemaps.sh).
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      # Catches a live site that deployed but is broken, e.g. cached HTML linking deleted assets.
+      - name: Smoke test berghald
+        run: sites/berghald/scripts/smoke.sh https://berghald.eythorkonrads.com
