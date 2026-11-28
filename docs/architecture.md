@@ -37,7 +37,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
    - collections (e.g. Verkefni, Þjónusta)
    - singletons (e.g. settings); `showUnder: 'pages'` lists one under Síður og textar instead of the menu (the footer)
-   - pages: a fixed set, each with its `route`, its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
+   - pages: a fixed set, each with its `route` and its path in every other locale (`localeRoutes: { en: '/services' }`), its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
    - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
@@ -118,6 +118,9 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - When the daily allowance runs out (`3036`), texts stay `pending`. The nightly cron (03:00 UTC, after the 00:00 reset) retries them (`retryTranslations`).
   - In Vefstjórn, each editor has an Íslenska / Enska switch. The English tab shows only the translatable texts, each flagged "Óyfirfarið" until someone edits it or clicks Samþykkja. Clearing an English text has it translated again. English can't be saved before the Icelandic, and Drög/Birt follow the Icelandic version.
   - Local dev and e2e have no AI binding (`remoteBindings: false`); `TRANSLATOR=fake` in `.dev.vars` writes `[en] <Icelandic>` instead. The real model runs on the PR preview and the live site.
+  - The site loaders (`listPublished`, `getPage`, `getSingleton`, `pageHeaders`) also lay each locale's row over the Icelandic one field by field (`withFallback`), so an English text left empty, or an item with no English row, shows the Icelandic.
+- **URLs:** Icelandic at the root (`/verkefni`), English under `/en` (`/en/projects`). Each page's path per locale is fixed in `cms.config.ts`; document slugs are shared, so the language switch (`switchLocalePath`) swaps the prefix and page segment, keeps the slug and the query, and is a plain link. `<html lang>` comes from the path. No redirect by `Accept-Language` or cookie.
+- **SEO:** each page has a self canonical and `hreflang` `is`, `en` and `x-default` (Icelandic). `/sitemap.xml` lists both with `xhtml:link` alternates. Every host except `berghald.is` sends `X-Robots-Tag: noindex` (the pre-launch host, PR previews, localhost).
 
 ## 7. Frontend stack
 

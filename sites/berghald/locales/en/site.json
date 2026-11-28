@@ -7,8 +7,32 @@
     "generic": "Something went wrong",
     "home": "Go to the home page"
   },
+  "footer": {
+    "pages": "Pages",
+    "contact": "Contact",
+    "legal": "Legal",
+    "kennitala": "Reg. no."
+  },
   "home": {
     "eyebrow": "Landscaping · Paving · Stone walls",
     "heading": "We shape your garden"
+  },
+  "language": {
+    "switch": "Á íslensku",
+    "short": "IS"
+  },
+  "nav": {
+    "main": "Main menu",
+    "home": "Berghald – home",
+    "openMenu": "Menu",
+    "quote": "Get a quote",
+    "skip": "Skip to content"
+  },
+  "pages": {
+    "services": "Services",
+    "projects": "Projects",
+    "about": "About us",
+    "privacy": "Privacy policy",
+    "cookies": "Cookies"
   }
 }

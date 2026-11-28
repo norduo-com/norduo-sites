@@ -20,13 +20,27 @@ export const resources = {
  * Bundled statically and initialised synchronously, so SSR never waits on a fetch.
  * A missing key renders as the key itself; it never throws.
  */
-export const i18n = i18next.createInstance()
-void i18n.use(initReactI18next).init({
-  resources,
-  lng: 'is',
-  fallbackLng: false,
-  defaultNS: 'site',
-  ns: ['site', 'cms', 'vefstjorn'],
-  initAsync: false,
-  interpolation: { escapeValue: false },
-})
+function instance(lng: keyof typeof resources) {
+  const i18n = i18next.createInstance()
+  void i18n.use(initReactI18next).init({
+    resources,
+    lng,
+    fallbackLng: false,
+    defaultNS: 'site',
+    ns: ['site', 'cms', 'vefstjorn'],
+    initAsync: false,
+    interpolation: { escapeValue: false },
+  })
+  return i18n
+}
+
+/** Icelandic: the public site at the root, and Vefstjórn. */
+export const i18n = instance('is')
+
+/**
+ * One instance per locale, never `changeLanguage` on a shared one: a Worker renders
+ * requests in both languages at once.
+ */
+const byLocale = { is: i18n, en: instance('en') }
+
+export const i18nFor = (locale: string) => (locale === 'en' ? byLocale.en : byLocale.is)

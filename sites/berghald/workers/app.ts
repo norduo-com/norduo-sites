@@ -13,6 +13,7 @@ import { sentryOptions } from '../app/sentry'
 import cms from '../cms.config'
 import { backupToR2 } from './backup'
 import { withPageCache } from './cache'
+import { withRobots } from './robots'
 
 const requestHandler = createRequestHandler(
   () => import('virtual:react-router/server-build'),
@@ -20,6 +21,12 @@ const requestHandler = createRequestHandler(
 )
 
 const app = new Hono<{ Bindings: Env }>()
+
+// Only berghald.is may be indexed; the pre-launch host and previews send noindex.
+app.use('*', async (c, next) => {
+  await next()
+  c.res = withRobots(c.res, c.req.url, cms.site.url)
+})
 
 // Hono turns a thrown error into a 500 itself, so withSentry never sees it; report it here.
 app.onError((error, c) => {
