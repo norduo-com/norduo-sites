@@ -46,7 +46,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 **Storage:**
 
 - A generic D1 schema shared by all sites: a `documents` table with `type`, `slug`, `locale`, `status` (draft/published), `data` (JSON) and timestamps, a `media` table and an `enquiries` table.
-- Every site uses the same migrations.
+- Every site uses the same migrations. Each site's deploy applies them, then deploys its Worker, so for a while the old Worker runs against the new schema, and a site whose deploy failed keeps its old code. Every PR preview also shares one preview D1. So **migrations only add** (expand, then contract): add a table or a nullable/defaulted column first; drop or rename only in a later release, once no deployed code reads the old shape.
 - Zod schemas generated from the config validate data on save and give the frontend typed content.
 - Trade-off: JSON is harder to query than real tables. That's fine at this scale (about 10 projects).
 
