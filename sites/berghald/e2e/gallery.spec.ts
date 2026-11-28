@@ -27,9 +27,9 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
 }) => {
   const title = `Hellulögn ${tag()}`
   await page.goto('/vefstjorn/projects')
-  await page.getByRole('button', { name: 'Nýtt' }).click()
+  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(title)
-  const gallery = page.getByRole('group', { name: 'Myndir og myndbönd' })
+  const gallery = page.getByRole('group', { name: 'Myndir og myndbönd', exact: true })
 
   await gallery.getByLabel('Bæta við myndum').setInputFiles({
     name: 'IMG_0001.JPG',
@@ -48,21 +48,21 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
   await expect(gallery.getByText('Myndband 2', { exact: true })).toBeVisible({ timeout: 15_000 })
 
   await gallery.getByLabel('Tengill á YouTube eða Vimeo').fill('https://example.com/myndband')
-  await gallery.getByRole('button', { name: 'Bæta við tengli' }).click()
+  await gallery.getByRole('button', { name: 'Bæta við tengli', exact: true }).click()
   await expect(gallery.getByRole('alert')).toHaveText(
     'Sláðu inn tengil á myndband á YouTube eða Vimeo.',
   )
   await gallery.getByLabel('Tengill á YouTube eða Vimeo').fill('https://youtu.be/dQw4w9WgXcQ')
-  await gallery.getByRole('button', { name: 'Bæta við tengli' }).click()
+  await gallery.getByRole('button', { name: 'Bæta við tengli', exact: true }).click()
   await expect(gallery.getByText('Tengt myndband 3', { exact: true })).toBeVisible()
 
   // The photo is the cover by default; a video can't be until it has its own photo.
   const covers = gallery.getByRole('radio', { name: /Forsíðumynd/ })
   await expect(covers.nth(0)).toBeChecked()
   await expect(covers.nth(1)).toBeDisabled()
-  await gallery.getByRole('button', { name: 'Færa atriði 3 upp' }).click()
+  await gallery.getByRole('button', { name: 'Færa atriði 3 upp', exact: true }).click()
 
-  await page.getByRole('button', { name: 'Vista' }).click()
+  await page.getByRole('button', { name: 'Vista', exact: true }).click()
   await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
 
   await page.reload()
@@ -130,9 +130,9 @@ test('a video gets a still from itself as its poster, so it can be the cover', a
     'No MediaRecorder in this browser build',
   )
   const clip = await recordedMp4(page)
-  await page.getByRole('button', { name: 'Nýtt' }).click()
+  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(`Myndband ${tag()}`)
-  const gallery = page.getByRole('group', { name: 'Myndir og myndbönd' })
+  const gallery = page.getByRole('group', { name: 'Myndir og myndbönd', exact: true })
   await gallery.getByLabel('Bæta við myndbandi').setInputFiles({
     name: 'klippa.mp4',
     mimeType: 'video/mp4',
@@ -140,8 +140,10 @@ test('a video gets a still from itself as its poster, so it can be the cover', a
   })
   const item = gallery.getByRole('listitem')
   await expect(item).toContainText('Myndband 1', { timeout: 15_000 })
-  await expect(item.getByRole('button', { name: 'Skipta um mynd fyrir myndband' })).toBeVisible()
-  const cover = item.getByRole('radio', { name: 'Forsíðumynd' })
+  await expect(
+    item.getByRole('button', { name: 'Skipta um mynd fyrir myndband', exact: true }),
+  ).toBeVisible()
+  const cover = item.getByRole('radio', { name: 'Forsíðumynd', exact: true })
   await expect(cover).toBeEnabled()
   // No photo in the gallery, so the video's poster is the cover.
   await expect(cover).toBeChecked()

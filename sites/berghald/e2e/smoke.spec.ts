@@ -8,9 +8,9 @@ test('home page renders the hero', async ({ page }) => {
 
 test('Vefstjórn lists the content types from cms.config.ts', async ({ page }) => {
   await page.goto('/vefstjorn')
-  const nav = page.getByRole('navigation', { name: 'Vefstjórn' })
-  await expect(nav.getByRole('link', { name: 'Verkefni' })).toBeVisible()
-  await expect(nav.getByRole('link', { name: 'Myndasafn' })).toBeVisible()
+  const nav = page.getByRole('navigation', { name: 'Vefstjórn', exact: true })
+  await expect(nav.getByRole('link', { name: 'Verkefni', exact: true })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Myndasafn', exact: true })).toBeVisible()
 })
 
 test('CMS API answers health checks', async ({ request }) => {
