@@ -35,13 +35,7 @@ app.onError((error, c) => {
   return c.text('Internal Server Error', 500)
 })
 
-app.route(
-  '/api/cms',
-  createCmsApi(cms, {
-    // TODO: email Hjalti via the send_email binding once the address is verified.
-    onEnquiry: () => undefined,
-  }),
-)
+app.route('/api/cms', createCmsApi(cms))
 
 // Photos at the fixed widths, made from the master and cached at the edge.
 app.route('/img', createImageRoute())

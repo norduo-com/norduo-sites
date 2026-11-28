@@ -3,7 +3,7 @@ import { drizzle } from 'drizzle-orm/d1'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 
-import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
+import { documents, media, mediaRefs, siteMeta } from '../db/schema'
 import {
   type CmsConfig,
   type DocOf,
@@ -50,7 +50,7 @@ export interface CmsBindings {
   MEDIA: R2Bucket
   /** Cloudflare Images: master conversion, blurred previews and `/img` widths. */
   IMAGES?: ImagesBinding
-  /** "production" turns on the Cloudflare Access check. */
+  /** Only "development" turns the Cloudflare Access check off; anything else, or none, keeps it on. */
   ENVIRONMENT?: string
   /** Cloudflare Access team domain, e.g. "norduo.cloudflareaccess.com". */
   ACCESS_TEAM_DOMAIN?: string
@@ -69,8 +69,6 @@ export interface CmsBindings {
 }
 
 export interface CmsHooks {
-  /** Called after a quote enquiry is saved, e.g. to email it. */
-  onEnquiry?: (enquiry: EnquiryInput, env: CmsBindings) => Promise<void> | void
   /** Replaces the translator picked from the bindings (tests). */
   translator?: Translator
 }
@@ -81,15 +79,6 @@ function translatorFor(config: CmsConfig, env: CmsBindings, hooks: CmsHooks): Tr
   if (env.TRANSLATOR === 'fake') return fakeTranslator
   return env.AI ? workersAiTranslator(env.AI, config.translation) : null
 }
-
-export const enquiryInput = z.object({
-  name: z.string().trim().min(1).max(200),
-  email: z.email(),
-  phone: z.string().trim().max(40).optional(),
-  service: z.string().trim().max(200).optional(),
-  message: z.string().trim().min(1).max(5000),
-})
-export type EnquiryInput = z.infer<typeof enquiryInput>
 
 const saveInput = z.object({
   locale: z.string().min(2).max(10).optional(),
@@ -428,8 +417,8 @@ function setRefs(db: Db, doc: { type: string; slug: string; locale: string }, id
 
 /**
  * Hono app with the CMS API. A site mounts it, e.g. `app.route('/api/cms', createCmsApi(cms))`.
- * Public routes: GET published content, POST /enquiries.
- * Admin routes (/admin/*) sit behind Cloudflare Access.
+ * Admin routes (/admin/*) sit behind Cloudflare Access. Site loaders read published content
+ * with `getPage` and `listPublished`, so there is no public content route to leak fields.
  */
 export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
   const app = new Hono<{ Bindings: CmsBindings }>()
@@ -453,42 +442,14 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
 
   app.get('/health', (c) => c.json({ ok: true, site: config.site.id }))
 
-  // ---------- public ----------
-
-  app.get('/content/:type', async (c) => {
-    const type = c.req.param('type')
-    if (!isType(type)) return c.json({ error: 'Unknown type' }, 404)
-    const locale = localeOf(c)
-    const rows = await drizzle(c.env.DB)
-      .select({ slug: documents.slug, data: documents.data })
-      .from(documents)
-      .where(
-        and(
-          eq(documents.type, type),
-          eq(documents.locale, locale),
-          eq(documents.status, 'published'),
-        ),
-      )
-      .orderBy(asc(documents.sort), asc(documents.createdAt))
-    return c.json(rows)
-  })
-
-  app.post('/enquiries', async (c) => {
-    const parsed = enquiryInput.safeParse(await c.req.json().catch(() => null))
-    if (!parsed.success) return c.json({ error: z.treeifyError(parsed.error) }, 400)
-    await drizzle(c.env.DB)
-      .insert(enquiries)
-      .values({ id: crypto.randomUUID(), ...parsed.data })
-    await hooks.onEnquiry?.(parsed.data, c.env)
-    return c.json({ ok: true }, 201)
-  })
-
   // ---------- admin ----------
 
   app.use('/admin/*', async (c, next) => {
     // Cloudflare Access sits in front of /vefstjorn and /api/cms/admin; the Worker checks its
     // signed token too, so a forged header or a request that bypasses Access gets nowhere.
-    if (c.env.ENVIRONMENT === 'production') {
+    // Fails closed: only an explicit "development" skips the check, so a missing or misspelled
+    // ENVIRONMENT never opens the admin.
+    if (c.env.ENVIRONMENT !== 'development') {
       const { ACCESS_TEAM_DOMAIN: teamDomain, ACCESS_AUD: aud } = c.env
       const email =
         teamDomain && aud
