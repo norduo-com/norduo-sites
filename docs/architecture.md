@@ -196,7 +196,8 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 ## 13. Known gaps in the scaffold
 
-- Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. In production a missing setting fails closed (401).
+- Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. A missing setting fails closed (401), and only `ENVIRONMENT=development` turns the check off: a missing or misspelled value keeps it on.
+- Closed: the CMS API has no public routes. Site loaders read D1 with `getPage` and `listPublished`, which pick the fields to send; a public `/content/:type` route returned whole documents, settings and SEO keywords included. `POST /enquiries` comes back with Turnstile in #44.
 - Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
 - `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
 - The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except repeater; a page's blocks are added, removed and moved in its editor. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.

@@ -93,8 +93,8 @@ async function create(data: Record<string, unknown>, status: 'draft' | 'publishe
 }
 
 async function publicNames() {
-  const res = await call('GET', '/content/equipment')
-  return (await res.json<{ data: { name: string } }[]>()).map((d) => d.data.name)
+  const items = await listPublished(db.d1, cms, 'equipment', { fields: ['name'] })
+  return items.map((d) => d.data.name)
 }
 
 describe('collection with drafts', () => {
@@ -176,8 +176,8 @@ describe('singletons', () => {
       data: { phone: '691 8944' },
     })
     expect(res.status).toBe(200)
-    const pub = await call('GET', '/content/settings')
-    expect(await pub.json()).toMatchObject([{ data: { phone: '691 8944' } }])
+    const saved = await call('GET', '/admin/content/settings/settings')
+    expect(await saved.json()).toMatchObject({ status: 'published', data: { phone: '691 8944' } })
   })
 })
 

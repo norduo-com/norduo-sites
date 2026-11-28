@@ -120,18 +120,14 @@ describe('createCmsApi', () => {
     expect(await res.json()).toEqual({ ok: true, site: 'test' })
   })
 
-  it('returns 404 for an unknown content type', async () => {
-    const res = await app.request('/content/nope')
-    expect(res.status).toBe(404)
+  it('has no public content or enquiry routes', async () => {
+    expect((await app.request('/content/equipment')).status).toBe(404)
+    expect((await app.request('/enquiries', { method: 'POST' })).status).toBe(404)
   })
 
-  it('rejects an invalid enquiry before touching the database', async () => {
-    const res = await app.request('/enquiries', {
-      method: 'POST',
-      body: JSON.stringify({ name: '', email: 'not-an-email' }),
-      headers: { 'content-type': 'application/json' },
-    })
-    expect(res.status).toBe(400)
+  it('keeps the admin closed when ENVIRONMENT is missing', async () => {
+    expect((await app.request('/admin/config', {}, {})).status).toBe(401)
+    expect((await app.request('/admin/config', {}, { ENVIRONMENT: 'prod' })).status).toBe(401)
   })
 })
 
