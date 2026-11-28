@@ -22,6 +22,10 @@ Read during review. These are judgement calls; anything mechanical is a lint rul
 
 - **A failure the editor sees carries a code the server logs.** Vefstjórn shows a short Icelandic message plus the server's code; the Worker logs the same reason (`console.warn`), so Workers Logs explain a bug report without a live `wrangler tail`.
 
+## Database
+
+- **Migrations only add.** A migration in `packages/cms/migrations` must work with the Worker code already deployed on every site and on other PRs' previews (one preview D1). Add tables and nullable or defaulted columns; drop or rename in a later PR, after the code that read the old shape is live everywhere (`docs/architecture.md` §2).
+
 ## Spacing
 
 - `pnpm lint` rejects arbitrary spacing values and non-token radii in sites. Numeric spacing (`mt-2`) is for small gaps inside one component where no token in `docs/spacing-system.md` fits; gaps between cards, boxes and sections use the tokens.
