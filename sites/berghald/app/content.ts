@@ -7,17 +7,7 @@
 export const QUESTION_SETS = ['garden', 'trees', 'snow', 'crane', 'general'] as const
 
 /** Icons the Skref and Gildi blocks can show. */
-export const BLOCK_ICONS = [
-  'chat',
-  'ruler',
-  'pencil',
-  'shovel',
-  'check',
-  'leaf',
-  'shield',
-  'clock',
-  'handshake',
-] as const
+export const BLOCK_ICONS = ['eye', 'offer', 'truck', 'key', 'layers', 'chat'] as const
 
 /** Nýleg verkefni on the home page shows at most this many projects (GLOSSARY: Home-page project). */
 export const HOME_PROJECTS = 4

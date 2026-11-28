@@ -217,7 +217,9 @@ export default defineCms({
       fields: {
         text: text({ i18n: true, multiline: true }),
         cta: group({
+          eyebrow: text({ i18n: true }),
           heading: text({ i18n: true }),
+          lead: text({ i18n: true, multiline: true }),
           button: text({ i18n: true }),
         }),
       },
@@ -238,7 +240,7 @@ export default defineCms({
       dark: toggle(),
       buttons: repeater(buttonFields()),
     }),
-    recentProjects: block(intro()),
+    recentProjects: block({ ...intro(), buttonText: text({ i18n: true, max: 40 }) }),
     steps: block({
       ...intro(),
       steps: iconItems(),
@@ -288,7 +290,8 @@ export default defineCms({
       ...page({ is: '/', en: '/' }, COMMON_BLOCKS),
       fields: {
         ...header(),
-        // The hero's heading ends with one of these, in turn.
+        // Under the hero's heading: "Við sjáum um" and then each of the words in turn.
+        wordsLead: text({ i18n: true, max: 40 }),
         words: repeater({ word: text({ required: true, i18n: true, max: 30 }) }),
       },
     },

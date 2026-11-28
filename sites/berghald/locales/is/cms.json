@@ -291,15 +291,12 @@
     "icon": {
       "label": "Tákn",
       "choices": {
-        "chat": "Spjall",
-        "ruler": "Mæling",
-        "pencil": "Hönnun",
-        "shovel": "Skófla",
-        "check": "Hak",
-        "leaf": "Laufblað",
-        "shield": "Skjöldur",
-        "clock": "Klukka",
-        "handshake": "Handaband"
+        "eye": "Auga (skoðun)",
+        "offer": "Blað (tilboð)",
+        "truck": "Kranabíll",
+        "key": "Lykill (afhending)",
+        "layers": "Lög (undirvinna)",
+        "chat": "Talblaðra (samskipti)"
       }
     },
     "quote": {
@@ -357,8 +354,13 @@
     "home": {
       "label": "Forsíða",
       "fields": {
+        "wordsLead": {
+          "label": "Texti á undan orðunum",
+          "help": "T.d. „Við sjáum um“."
+        },
         "words": {
-          "label": "Orð sem skiptast á í fyrirsögn",
+          "label": "Orð sem skiptast á",
+          "help": "Birtast eitt í einu á eftir textanum hér fyrir ofan, t.d. hellulagnir, hleðslur, verandir.",
           "fields": {
             "word": {
               "label": "Orð"
