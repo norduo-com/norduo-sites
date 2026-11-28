@@ -8,7 +8,6 @@ if [ ! -d node_modules ]; then
     echo "pnpm install --frozen-lockfile failed; run it yourself to see why."
   fi
 fi
-# .dev.vars turns Access off and builds bundle it, so it is never created automatically.
-if [ ! -f sites/berghald/.dev.vars ]; then
-  echo "e2e needs sites/berghald/.dev.vars: cp sites/berghald/.dev.vars.example sites/berghald/.dev.vars (never deploy from a checkout that has it)."
-fi
+# .dev.vars turns Access off and builds bundle it, so it is never created or edited
+# automatically; this only says when it is missing or older than the example.
+sh sites/berghald/scripts/check-dev-vars.sh || true
