@@ -1,6 +1,6 @@
 /*
  * Shared design tokens as a Tailwind v4 theme.
- * Spacing names follow the Berghald spacing system (claude/spacing-system.md):
+ * Spacing names follow the Berghald spacing system (docs/spacing-system.md):
  *   p-g, px-in, py-s, mt-s2, p-cp, p-tp, rounded-box, rounded-card, rounded-img
  * A site imports this after `@import "tailwindcss";` and can override any value.
  */
