@@ -144,7 +144,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **Secrets:** GitHub Actions secrets for CI/deploy (Cloudflare API token and account ID, in the `production` environment), and `wrangler secret` for runtime secrets (Sentry DSN, Turnstile secret, etc.). Nothing secret is committed; this is a public repo.
 - **Backups:**
   - D1 Time Travel gives 30 days of point-in-time restore.
-  - A nightly Cron Trigger also exports D1 to R2 (`backups/YYYY-MM-DD.json`).
+  - A nightly Cron Trigger also exports D1 to R2, one object per table (`backups/YYYY-MM-DD/<table>.json`), kept 90 days by the `backups-90d` lifecycle rule. `enquiries` is left out: customers' personal data follows its own retention (#45), and Time Travel covers it for 30 days.
 
 ## 9. Quality & tooling
 
