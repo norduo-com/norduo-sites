@@ -1,4 +1,10 @@
+import { execFileSync } from 'node:child_process'
+import { join } from 'node:path'
+
 import { defineConfig, devices } from '@playwright/test'
+
+// Stop before the run when .dev.vars is missing or lacks a key from .dev.vars.example.
+execFileSync('sh', [join(import.meta.dirname, 'scripts/check-dev-vars.sh')], { stdio: 'inherit' })
 
 const port = 4173
 
