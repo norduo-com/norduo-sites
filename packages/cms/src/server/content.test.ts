@@ -375,3 +375,19 @@ describe('pages', () => {
     expect(await getPage(db.d1, cms, 'equipment')).toEqual(header)
   })
 })
+
+describe('order of new items', () => {
+  it('puts each new item last, with the same place in every locale', async () => {
+    const a = await create({ name: 'Kranabíll' }, 'published')
+    const b = await create({ name: 'Smágrafa' }, 'published')
+    const { results } = await db.d1
+      .prepare("select slug, locale, sort from documents where type = 'equipment' order by sort")
+      .all<{ slug: string; locale: string; sort: number }>()
+    const sortOf = (slug: string, locale: string) =>
+      results.find((r) => r.slug === slug && r.locale === locale)?.sort
+    expect(sortOf(a, 'is')).toBe(0)
+    expect(sortOf(a, 'en')).toBe(0)
+    expect(sortOf(b, 'is')).toBe(1)
+    expect(sortOf(b, 'en')).toBe(1)
+  })
+})
