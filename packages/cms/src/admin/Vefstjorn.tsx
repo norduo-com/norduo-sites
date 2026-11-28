@@ -3,12 +3,19 @@ import { useTranslation } from 'react-i18next'
 
 import { type CmsConfig, MEDIA_SCREEN, pageFields, PAGES_SCREEN } from '../define'
 import type { Fields } from '../fields'
-import { collectionLabelKey, pageLabelKey, singletonLabelKey } from '../labels'
+import {
+  collectionLabelKey,
+  noteKey,
+  pageLabelKey,
+  shortcutLabelKey,
+  singletonLabelKey,
+} from '../labels'
 import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
 import { AdminContext } from './context'
 import type { EditorDoc } from './Editor'
 import { MediaScreen } from './MediaScreen'
+import { Note } from './Notices'
 import { LocalizedEditor } from './TranslationEditor'
 
 /**
@@ -75,6 +82,7 @@ export function Vefstjorn({
           name={sub}
           owner={`pages.${sub}`}
           heading={t(pageLabelKey(sub), { ns: 'cms' })}
+          note={pages[sub]?.note ? t(noteKey(`pages.${sub}`), { ns: 'cms' }) : undefined}
           fields={pageFields(config, sub)}
           previewPath={pages[sub]?.route}
           back={back}
@@ -90,6 +98,7 @@ export function Vefstjorn({
           name={sub}
           owner={`singletons.${sub}`}
           heading={t(singletonLabelKey(sub), { ns: 'cms' })}
+          note={singletons[sub]?.note ? t(noteKey(`singletons.${sub}`), { ns: 'cms' }) : undefined}
           fields={singletons[sub]?.fields ?? {}}
           back={back}
         />
@@ -133,7 +142,14 @@ export function Vefstjorn({
         </nav>
         <main className="flex-1 p-g">
           {collection ? (
-            <CollectionScreen key={screen} api={api} name={screen} collection={collection} />
+            <CollectionScreen
+              key={screen}
+              api={api}
+              name={screen}
+              collection={collection}
+              base={base}
+              sub={sub}
+            />
           ) : singleton ? (
             <DocumentScreen
               key={screen}
@@ -142,6 +158,7 @@ export function Vefstjorn({
               name={screen}
               owner={`singletons.${screen}`}
               heading={t(singletonLabelKey(screen), { ns: 'cms' })}
+              note={singleton.note ? t(noteKey(`singletons.${screen}`), { ns: 'cms' }) : undefined}
               fields={singleton.fields}
             />
           ) : screen === PAGES_SCREEN && hasPagesScreen ? (
@@ -157,6 +174,19 @@ export function Vefstjorn({
             <>
               <h1 className="text-3xl">{t('nav.overview')}</h1>
               <p className="mt-2 text-neutral-500">{config.site.name}</p>
+              {config.admin?.shortcuts && (
+                <nav aria-label={t('overview.shortcuts')} className="mt-6 gap-2 flex flex-wrap">
+                  {config.admin.shortcuts.map((s) => (
+                    <a
+                      key={s.name}
+                      href={`${base}/${s.to}`}
+                      className="rounded-lg bg-white px-4 py-2 hover:bg-neutral-50"
+                    >
+                      {t(shortcutLabelKey(s.name), { ns: 'cms' })}
+                    </a>
+                  ))}
+                </nav>
+              )}
             </>
           )}
         </main>
@@ -208,6 +238,7 @@ function DocumentScreen({
   name,
   owner,
   heading,
+  note,
   fields,
   previewPath,
   back,
@@ -218,6 +249,8 @@ function DocumentScreen({
   name: string
   owner: string
   heading: string
+  /** The text of the config's side card, if it has one. */
+  note?: string
   fields: Fields
   previewPath?: string
   back?: { href: string; label: string }
@@ -248,6 +281,7 @@ function DocumentScreen({
         </a>
       )}
       <h1 className="text-2xl">{heading}</h1>
+      {note && <Note text={note} />}
       {loadError && <p role="alert">{t('errors.loadFailed')}</p>}
       {!doc && !loadError && <p>{t('list.loading')}</p>}
       {doc && (

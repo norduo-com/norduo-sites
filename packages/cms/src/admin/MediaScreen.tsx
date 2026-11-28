@@ -18,8 +18,14 @@ const NO_ALT = ':noAlt'
 function ownerOf(config: CmsConfig, ref: { type: string; slug: string }) {
   if (ref.type === PAGES_SCREEN && Object.hasOwn(config.pages ?? {}, ref.slug))
     return { key: pageLabelKey(ref.slug), path: `${PAGES_SCREEN}/${ref.slug}` }
-  if (Object.hasOwn(config.collections, ref.type))
-    return { key: collectionLabelKey(ref.type), path: ref.type }
+  if (Object.hasOwn(config.collections, ref.type)) {
+    // A table layout gives each item its own page; a split one opens on the list.
+    const table = config.collections[ref.type]?.layout === 'table'
+    return {
+      key: collectionLabelKey(ref.type),
+      path: table ? `${ref.type}/${encodeURIComponent(ref.slug)}` : ref.type,
+    }
+  }
   const underPages = config.singletons?.[ref.type]?.showUnder === PAGES_SCREEN
   return {
     key: singletonLabelKey(ref.type),

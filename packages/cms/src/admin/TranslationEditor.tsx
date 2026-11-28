@@ -22,13 +22,16 @@ function translatable(field: Field): boolean {
   return false
 }
 
-/** The fields a translation shows: translatable ones, groups cut down to their translatable parts. */
+/**
+ * The fields a translation shows: translatable ones, groups and repeaters cut down to their
+ * translatable parts.
+ */
 export function translatableFields(fields: Fields): Fields {
   return Object.fromEntries(
     Object.entries(fields).flatMap(([name, field]) => {
       if (!translatable(field)) return []
       const nested = field as Nested
-      if (field.kind === 'group' && nested.fields)
+      if ((field.kind === 'group' || field.kind === 'repeater') && nested.fields)
         return [[name, { ...field, fields: translatableFields(nested.fields) }]]
       return [[name, field]]
     }),

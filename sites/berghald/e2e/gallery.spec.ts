@@ -26,8 +26,7 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
   page,
 }) => {
   const title = `Hellulögn ${tag()}`
-  await page.goto('/vefstjorn/projects')
-  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
+  await page.goto('/vefstjorn/projects/_new')
   await page.getByLabel('Heiti').fill(title)
   const gallery = page.getByRole('group', { name: 'Myndir og myndbönd', exact: true })
 
@@ -66,7 +65,6 @@ test('a gallery takes a photo, an MP4 and a YouTube link, keeps their order and 
   await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
 
   await page.reload()
-  await page.getByRole('button', { name: new RegExp(title) }).click()
   const items = gallery.getByRole('listitem')
   await expect(items).toHaveCount(3)
   await expect(items.nth(0)).toContainText('Mynd 1')
@@ -123,14 +121,13 @@ async function recordedMp4(page: Page): Promise<Buffer> {
 }
 
 test('a video gets a still from itself as its poster, so it can be the cover', async ({ page }) => {
-  await page.goto('/vefstjorn/projects')
+  await page.goto('/vefstjorn/projects/_new')
   // WebKit on Linux (CI) has no MediaRecorder to make the clip; WebKit on macOS does.
   test.skip(
     !(await page.evaluate(() => 'MediaRecorder' in window)),
     'No MediaRecorder in this browser build',
   )
   const clip = await recordedMp4(page)
-  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(`Myndband ${tag()}`)
   const gallery = page.getByRole('group', { name: 'Myndir og myndbönd', exact: true })
   await gallery.getByLabel('Bæta við myndbandi').setInputFiles({

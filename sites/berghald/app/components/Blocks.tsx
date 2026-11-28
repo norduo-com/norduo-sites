@@ -9,21 +9,28 @@ export type RenderedBlock =
   | { type: 'text'; heading?: string; html: string }
   | { type: 'quoteForm'; eyebrow?: string; heading?: string; lead?: string }
 
-/** `marks` are the text block's rich text marks, passed in so the config stays out of the client. */
+/**
+ * `marks` are the text block's rich text marks, passed in so the config stays out of the
+ * client. Block types without a component yet are left out; each comes with its page's ticket.
+ */
 export function renderBlocks(
   blocks: readonly StoredBlock[] = [],
   marks: Readonly<Record<string, string>> = {},
 ): RenderedBlock[] {
-  return blocks.map((block): RenderedBlock => {
+  return blocks.flatMap((block): RenderedBlock[] => {
     switch (block.type) {
       case 'text':
-        return {
-          type: 'text',
-          heading: block.data.heading,
-          html: richTextToHtml(block.data.body ?? [], marks),
-        }
+        return [
+          {
+            type: 'text',
+            heading: block.data.heading,
+            html: richTextToHtml(block.data.body ?? [], marks),
+          },
+        ]
       case 'quoteForm':
-        return { type: 'quoteForm', ...block.data }
+        return [{ type: 'quoteForm', ...block.data }]
+      default:
+        return []
     }
   })
 }

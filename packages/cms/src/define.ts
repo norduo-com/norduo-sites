@@ -6,6 +6,25 @@ import type { SeoField, SeoValue } from './seo'
  * namespace by config path, e.g. `collections.equipment.label` (see `labels.ts`).
  */
 
+/** A document as a collection's list hooks see it. */
+export interface ListedDoc<F extends Fields = Fields> {
+  slug: string
+  status: 'draft' | 'published'
+  data: Partial<Infer<F>>
+}
+
+export type BadgeTone = 'neutral' | 'info' | 'success' | 'warning'
+
+/** A tag on a list row. `label` is a key in the site's `cms` namespace. */
+export interface Badge {
+  label: string
+  tone?: BadgeTone
+}
+
+/**
+ * Hooks are pure functions in the config, run in Vefstjórn only. Every string they return is a
+ * key in the site's `cms` namespace, so the config still holds no wording.
+ */
 export interface CollectionConfig<F extends Fields = Fields> {
   fields: F
   /** Items are saved as Drög or Birt; only Birt ones are public. Without it, saving publishes. */
@@ -14,13 +33,38 @@ export interface CollectionConfig<F extends Fields = Fields> {
   titleField?: keyof F & string
   /** Drag-to-reorder in lists; the order is used on the site. */
   sortable?: boolean
+  /**
+   * `split` (the default): the list with the selected item's editor beside it. `table`: a
+   * table of items, each opened on its own edit page.
+   */
+  layout?: 'split' | 'table'
+  list?: {
+    /** A banner above the list, e.g. which season it is; `null` for none. */
+    notice?(now: Date): string | null
+    /** Tags on each row, e.g. a service's seasons. */
+    badge?(doc: ListedDoc<F>): Badge | readonly Badge[] | null
+  }
+  /** Collection-wide warnings, shown on the list and in the editor. They never block a save. */
+  warnings?(docs: readonly ListedDoc<F>[]): readonly string[]
+  /** A side card with a lock icon; its text is `collections.<name>.note`. */
+  note?: boolean
 }
 
 export interface SingletonConfig<F extends Fields = Fields> {
   fields: F
   /** List it in another screen instead of the menu, e.g. the footer under Síður og textar. */
   showUnder?: typeof PAGES_SCREEN
+  /** A side card with a lock icon; its text is `singletons.<name>.note`. */
+  note?: boolean
 }
+
+/** A list hook's badges as a list. */
+export function badgesOf(config: CollectionConfig, doc: ListedDoc): readonly Badge[] {
+  const out = config.list?.badge?.(doc) ?? []
+  return isBadgeList(out) ? out : [out]
+}
+
+const isBadgeList = (b: Badge | readonly Badge[]): b is readonly Badge[] => Array.isArray(b)
 
 /**
  * One of the site's fixed pages. Editors can't create or delete pages; each one is saved
@@ -46,11 +90,15 @@ export interface PageConfig<F extends Fields = Fields> {
   seo: SeoField
   /** Names of the library blocks editors can add, stored under `blocks`. */
   blocks?: readonly string[]
+  /** A side card with a lock icon; its text is `pages.<name>.note`. */
+  note?: boolean
 }
 
 /** Built-in Vefstjórn screens; no content may take their names. */
 export const PAGES_SCREEN = 'pages'
 export const MEDIA_SCREEN = 'media'
+/** The path segment of a new item on a table layout's edit page; never a valid slug. */
+export const NEW_ITEM = '_new'
 const RESERVED_FIELDS = ['seo', 'blocks']
 
 export interface CmsConfig {
@@ -62,13 +110,17 @@ export interface CmsConfig {
     locales: readonly [string, ...string[]]
     defaultLocale: string
   }
-  /** Per-site branding of the admin. */
+  /** Per-site branding of the admin: logo, title and menu. A theme of its own comes later. */
   admin?: {
     title?: string
     logo?: string
-    accent?: string
     /** Menu order; defaults to collections, then singletons. */
     menu?: readonly string[]
+    /**
+     * Links on Yfirlit. `to` is a screen path under Vefstjórn, e.g. "projects/_new"; the label
+     * is `admin.shortcuts.<name>` in the site's `cms` namespace.
+     */
+    shortcuts?: readonly { name: string; to: string }[]
   }
   collections: Record<string, CollectionConfig>
   singletons?: Record<string, SingletonConfig>
@@ -194,6 +246,16 @@ export function defineCms<const C extends CmsConfig>(config: C): C {
     checkSeo(name, singleton.fields)
   }
   checkPages(config)
+  const known = [
+    ...screens,
+    ...Object.keys(config.collections),
+    ...Object.keys(config.singletons ?? {}),
+  ]
+  for (const { name, to } of config.admin?.shortcuts ?? []) {
+    if (!known.includes(to.split('/')[0] ?? '')) {
+      throw new Error(`Shortcut "${name}" goes to "${to}", which isn't a Vefstjórn screen`)
+    }
+  }
   if (!config.site.locales.includes(config.site.defaultLocale)) {
     throw new Error(`defaultLocale "${config.site.defaultLocale}" is not in locales`)
   }

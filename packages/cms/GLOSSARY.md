@@ -20,6 +20,10 @@ _Avoid_: Route, screen
 A section of a page that an editor can add, remove or move, chosen from the block types that page allows. The site decides how each block type looks.
 _Avoid_: Component, widget, module
 
+**Config hook**:
+A pure function or flag in a site's config that adds to a generic screen: a list's notice and badges, a collection's warnings, a note card. It returns label keys, never wording, and never blocks a save.
+_Avoid_: Plugin, slot, extension
+
 **Draft** (UI: _Drög_):
 A document in a collection that is saved but not shown on the public site. Only collections have drafts; a singleton goes live when saved.
 _Avoid_: Unpublished, hidden

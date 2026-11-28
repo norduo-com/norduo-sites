@@ -9,6 +9,7 @@ import { BlocksInput } from './BlocksInput'
 import { useAdmin } from './context'
 import { GalleryInput } from './GalleryInput'
 import { ImageInput } from './ImageInput'
+import { RepeaterInput } from './RepeaterInput'
 import { RichTextInput } from './RichTextInput'
 import { SeoInput } from './SeoInput'
 import { inputClass } from './styles'
@@ -33,6 +34,7 @@ interface Kinds {
   relation: { to: string; many: boolean }
   slug: { from: string }
   group: { fields: Fields }
+  repeater: { fields: Fields }
   richText: { marks: Record<string, string> }
   blocks: { blocks: Record<string, BlockConfig> }
 }
@@ -52,6 +54,7 @@ const SUPPORTED = new Set([
   'monthRange',
   'slug',
   'group',
+  'repeater',
   'richText',
   'image',
   'gallery',
@@ -86,7 +89,8 @@ export function FieldInput(props: FieldInputProps) {
   const id = `${idPrefix}-${path}`
   const label = t(fieldLabelKeys(owner, name), { ns: 'cms' })
   const help = t(fieldHelpKeys(owner, name), { ns: 'cms', defaultValue: '' })
-  const error = errorAt(errors, path, field.kind === 'group' || field.kind === 'blocks')
+  // Containers show only their own error; their parts show theirs.
+  const error = errorAt(errors, path, ['group', 'blocks', 'repeater'].includes(field.kind))
   const describedBy = [help && `${id}-help`, error && `${id}-error`].filter(Boolean).join(' ')
   const a11y = {
     'aria-invalid': error ? true : undefined,
@@ -162,6 +166,23 @@ export function FieldInput(props: FieldInputProps) {
         blocks={field.blocks}
         value={value}
         errors={errors}
+        onChange={onChange}
+      />
+    )
+  }
+
+  if (is(field, 'repeater')) {
+    return (
+      <RepeaterInput
+        owner={owner}
+        name={name}
+        label={label}
+        path={path}
+        idPrefix={idPrefix}
+        fields={field.fields}
+        value={value}
+        errors={errors}
+        translating={translating}
         onChange={onChange}
       />
     )

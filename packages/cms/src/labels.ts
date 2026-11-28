@@ -12,6 +12,9 @@ export const collectionLabelKey = (name: string) => `collections.${name}.label`
 export const singletonLabelKey = (name: string) => `singletons.${name}.label`
 export const blockLabelKey = (name: string) => `blocks.${name}.label`
 export const pageLabelKey = (name: string) => `pages.${name}.label`
+/** A note's text, e.g. `singletons.settings.note`; `owner` is "singletons.settings". */
+export const noteKey = (owner: string) => `${owner}.note`
+export const shortcutLabelKey = (name: string) => `admin.shortcuts.${name}`
 
 /** Candidate keys for a field's label, most specific first. `owner` is e.g. "collections.team". */
 export function fieldLabelKeys(owner: string, field: string): string[] {
@@ -60,17 +63,24 @@ export function requiredLabels(config: CmsConfig): string[][] {
     }
   }
 
+  const note = (owner: string, has: boolean | undefined) => {
+    if (has) out.push([noteKey(owner)])
+  }
+  for (const { name } of config.admin?.shortcuts ?? []) out.push([shortcutLabelKey(name)])
   for (const [name, c] of Object.entries(config.collections)) {
     out.push([collectionLabelKey(name)])
+    note(`collections.${name}`, c.note)
     walkFields(`collections.${name}`, c.fields)
   }
   for (const [name, s] of Object.entries(config.singletons ?? {})) {
     out.push([singletonLabelKey(name)])
+    note(`singletons.${name}`, s.note)
     walkFields(`singletons.${name}`, s.fields)
   }
   for (const [name, def] of Object.entries(config.blocks ?? {})) walkBlock(name, def)
   for (const [name, p] of Object.entries(config.pages ?? {})) {
     out.push([pageLabelKey(name)])
+    note(`pages.${name}`, p.note)
     walkFields(`pages.${name}`, p.fields)
   }
 

@@ -1,10 +1,21 @@
 {
+  "admin": {
+    "shortcuts": {
+      "newProject": "Nýtt verkefni",
+      "media": "Hlaða upp myndum",
+      "services": "Breyta þjónustu"
+    }
+  },
   "collections": {
     "projects": {
       "label": "Verkefni",
+      "warnings": {
+        "tooManyOnHome": "Fleiri en fjögur birt verkefni eru merkt „Sýna á forsíðu“. Aðeins fyrstu fjögur í röðinni sjást á forsíðunni."
+      },
       "fields": {
         "summary": {
-          "label": "Stutt lýsing"
+          "label": "Stutt lýsing",
+          "help": "Sést á spjaldi verkefnisins og í leitarvélum ef lýsing er ekki fyllt út."
         },
         "body": {
           "label": "Texti"
@@ -13,22 +24,58 @@
           "label": "Myndir og myndbönd"
         },
         "showOnHome": {
-          "label": "Sýna á forsíðu"
+          "label": "Sýna á forsíðu",
+          "help": "Fyrstu fjögur birtu verkefnin með þetta merkt sjást undir „Nýleg verkefni“."
         }
       }
     },
     "services": {
       "label": "Þjónusta",
+      "notice": {
+        "winter": "Nú er vetur. Þjónusta sem á við á veturna birtist fyrst á vefnum, svo í röðinni hér.",
+        "spring": "Nú er vor. Þjónusta sem á við á vorin birtist fyrst á vefnum, svo í röðinni hér.",
+        "summer": "Nú er sumar. Þjónusta sem á við á sumrin birtist fyrst á vefnum, svo í röðinni hér.",
+        "autumn": "Nú er haust. Þjónusta sem á við á haustin birtist fyrst á vefnum, svo í röðinni hér."
+      },
+      "badges": {
+        "allYear": "Allt árið"
+      },
       "fields": {
-        "body": {
+        "homeText": {
+          "label": "Texti á forsíðu"
+        },
+        "description": {
           "label": "Lengri texti"
         },
         "items": {
-          "label": "Atriði",
-          "fields": {
-            "item": {
-              "label": "Atriði"
-            }
+          "label": "Atriði"
+        },
+        "image": {
+          "label": "Aðalmynd"
+        },
+        "homeImage": {
+          "label": "Mynd á forsíðu",
+          "help": "Ef engin mynd er valin er aðalmyndin notuð."
+        },
+        "dark": {
+          "label": "Dökkt útlit"
+        },
+        "showOnHome": {
+          "label": "Sýna á forsíðu",
+          "help": "Sýnir þjónustuna í hringekjunni á forsíðunni."
+        },
+        "showProjects": {
+          "label": "Sjá verkefni",
+          "help": "Sýnir hnapp sem opnar verkefnin fyrir þessa þjónustu."
+        },
+        "questions": {
+          "label": "Spurningar á tilboðsformi",
+          "choices": {
+            "garden": "Lóð",
+            "trees": "Tré",
+            "snow": "Snjór",
+            "crane": "Krani",
+            "general": "Almennt"
           }
         }
       }
@@ -41,6 +88,9 @@
         },
         "phone": {
           "label": "Símanúmer"
+        },
+        "showPhone": {
+          "label": "Sýna símanúmer á vefnum"
         }
       }
     },
@@ -51,13 +101,47 @@
   "singletons": {
     "settings": {
       "label": "Stillingar",
+      "note": "Sér Norduo um: lén, hýsingu, innskráningu í Vefstjórn og vafrakökutöfluna. Hafðu samband við Norduo til að breyta þeim.",
       "fields": {
         "phone": {
           "label": "Sími"
         },
+        "contactName": {
+          "label": "Tengiliður"
+        },
+        "social": {
+          "label": "Samfélagsmiðlar",
+          "help": "Aðeins miðlar með slóð sjást á vefnum.",
+          "fields": {
+            "facebook": {
+              "label": "Facebook"
+            },
+            "instagram": {
+              "label": "Instagram"
+            },
+            "tiktok": {
+              "label": "TikTok"
+            },
+            "youtube": {
+              "label": "YouTube"
+            },
+            "linkedin": {
+              "label": "LinkedIn"
+            },
+            "x": {
+              "label": "X"
+            },
+            "snapchat": {
+              "label": "Snapchat"
+            },
+            "pinterest": {
+              "label": "Pinterest"
+            }
+          }
+        },
         "enquiriesTo": {
           "label": "Senda fyrirspurnir á",
-          "help": "Fleiri netföng aðskilin með kommu."
+          "help": "Fyrirspurnir af tilboðsforminu eru sendar á þessi netföng."
         }
       }
     },
@@ -71,12 +155,86 @@
     }
   },
   "blocks": {
-    "text": {
-      "label": "Texti"
+    "intro": {
+      "label": "Inngangur"
+    },
+    "servicesCarousel": {
+      "label": "Þjónustuhringekja"
+    },
+    "feature": {
+      "label": "Kynning",
+      "fields": {
+        "items": {
+          "label": "Listi"
+        },
+        "buttons": {
+          "label": "Hnappar"
+        }
+      }
+    },
+    "recentProjects": {
+      "label": "Nýleg verkefni"
+    },
+    "steps": {
+      "label": "Skref"
+    },
+    "reviews": {
+      "label": "Umsagnir",
+      "fields": {
+        "items": {
+          "label": "Umsagnir"
+        }
+      }
     },
     "quoteForm": {
       "label": "Tilboðsform"
+    },
+    "story": {
+      "label": "Saga",
+      "fields": {
+        "image1": {
+          "label": "Mynd 1"
+        },
+        "image2": {
+          "label": "Mynd 2"
+        },
+        "image3": {
+          "label": "Mynd 3"
+        }
+      }
+    },
+    "values": {
+      "label": "Gildi",
+      "fields": {
+        "items": {
+          "label": "Gildi"
+        }
+      }
+    },
+    "team": {
+      "label": "Teymi"
+    },
+    "equipment": {
+      "label": "Tæki"
+    },
+    "serviceList": {
+      "label": "Þjónustulisti"
+    },
+    "projectList": {
+      "label": "Verkefnalisti"
+    },
+    "nextSteps": {
+      "label": "Næstu skref"
+    },
+    "text": {
+      "label": "Texti"
+    },
+    "cookieTable": {
+      "label": "Vafrakökutafla"
     }
+  },
+  "marks": {
+    "muted": "Grátt"
   },
   "fields": {
     "title": {
@@ -124,6 +282,41 @@
     "items": {
       "label": "Atriði"
     },
+    "item": {
+      "label": "Atriði"
+    },
+    "steps": {
+      "label": "Skref"
+    },
+    "icon": {
+      "label": "Tákn",
+      "choices": {
+        "chat": "Spjall",
+        "ruler": "Mæling",
+        "pencil": "Hönnun",
+        "shovel": "Skófla",
+        "check": "Hak",
+        "leaf": "Laufblað",
+        "shield": "Skjöldur",
+        "clock": "Klukka",
+        "handshake": "Handaband"
+      }
+    },
+    "quote": {
+      "label": "Umsögn"
+    },
+    "place": {
+      "label": "Staður"
+    },
+    "seasons": {
+      "label": "Árstíðir",
+      "choices": {
+        "winter": "Vetur",
+        "spring": "Vor",
+        "summer": "Sumar",
+        "autumn": "Haust"
+      }
+    },
     "company": {
       "label": "Fyrirtæki"
     },
@@ -134,7 +327,8 @@
       "label": "Netfang"
     },
     "responseTime": {
-      "label": "Svartími"
+      "label": "Svartími",
+      "help": "T.d. „Við svörum innan sólarhrings.“ Sést við tilboðsformið."
     },
     "lead": {
       "label": "Inngangstexti"
@@ -143,12 +337,35 @@
       "label": "Texti"
     },
     "button": {
+      "label": "Hnappur"
+    },
+    "buttonText": {
       "label": "Texti á hnappi"
+    },
+    "label": {
+      "label": "Texti á hnappi"
+    },
+    "link": {
+      "label": "Tengill",
+      "help": "Slóð á síðu á vefnum, t.d. /verkefni, eða full slóð sem byrjar á https://."
+    },
+    "dark": {
+      "label": "Dökkt"
     }
   },
   "pages": {
     "home": {
-      "label": "Forsíða"
+      "label": "Forsíða",
+      "fields": {
+        "words": {
+          "label": "Orð sem skiptast á í fyrirsögn",
+          "fields": {
+            "word": {
+              "label": "Orð"
+            }
+          }
+        }
+      }
     },
     "services": {
       "label": "Þjónusta"
@@ -166,7 +383,8 @@
       "label": "Persónuverndarstefna"
     },
     "cookies": {
-      "label": "Vafrakökur"
+      "label": "Vafrakökur",
+      "note": "Ekki breytanlegt hér: vafrakökutaflan er skrifuð í kóða vefsins, svo hún passi alltaf við kökurnar sem hann setur. Norduo breytir henni."
     },
     "notFound": {
       "label": "Síða fannst ekki (404)"
