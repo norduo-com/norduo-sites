@@ -27,7 +27,8 @@ Without `--env preview`, wrangler warns about multiple environments and saves no
 
 - **List objects:** wrangler has no list command. Dashboard → R2 → `berghald-media` → Objects (a folder like `tmp/` is gone when empty).
 - **Fetch one object:** `npx wrangler r2 object get berghald-media/media/<id>.webp --remote --file out.webp`
-- **Lifecycle rules:** `npx wrangler r2 bucket lifecycle list berghald-media`. `tmp-1d` deletes `tmp/` after 1 day on both buckets.
+- **Lifecycle rules:** `npx wrangler r2 bucket lifecycle list berghald-media`. `tmp-1d` deletes `tmp/` after 1 day on both buckets. `backups-90d` deletes `backups/` after 90 days on `berghald-media` (the preview has no cron): `npx wrangler r2 bucket lifecycle add berghald-media backups-90d backups/ --expire-days 90`.
+- **Restore a backup:** `npx wrangler r2 object get berghald-media/backups/<YYYY-MM-DD>/<table>.json --remote --file <table>.json`. Each file is a JSON array of rows. Within 30 days, D1 Time Travel is simpler: `npx wrangler d1 time-travel restore berghald --timestamp <ISO time>`.
 
 ## Video upload setup
 
