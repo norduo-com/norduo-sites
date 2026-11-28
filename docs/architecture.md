@@ -48,6 +48,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 - A generic D1 schema shared by all sites: a `documents` table with `type`, `slug`, `locale`, `status` (draft/published), `data` (JSON) and timestamps, a `media` table and an `enquiries` table.
 - Every site uses the same migrations.
 - Zod schemas generated from the config validate data on save and give the frontend typed content.
+- **The config only adds.** Site loaders trust stored JSON (no parse on read, to save CPU), so a field is never removed, retyped or made required in place. `contentShape()` lists every stored path and kind; each site commits it (`sites/<name>/content-shape.json`) and a unit test fails `pnpm check` on a removal or retype. After adding fields: `UPDATE_CONTENT_SHAPE=1 pnpm --filter <site> test`. To remove or retype one, first rewrite the stored content with a one-off script, then record with `CONTENT_SHAPE_BREAKING=1` too.
 - Trade-off: JSON is harder to query than real tables. That's fine at this scale (about 10 projects).
 
 **Drafts:** collections with `drafts: true` save as draft or published. Pages and singletons go live on save. Only published content is rendered publicly. A logged-in admin can preview drafts.
