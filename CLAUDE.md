@@ -36,6 +36,7 @@ pnpm test:e2e --filter berghald         # Playwright (turbo builds first)
 pnpm --filter berghald db:migrate:local
 pnpm --filter berghald db:migrate:preview # the PR-preview D1 (CI also runs it)
 pnpm --filter @norduo/cms db:generate   # after editing src/db/schema.ts
+UPDATE_CONTENT_SHAPE=1 pnpm --filter berghald test  # after adding fields to cms.config.ts
 ```
 
 Run `pnpm check` before calling work done, and the `code-review` skill against `main` before opening a PR. Logs, R2, D1 and the PR preview URL: `docs/ops.md`. CI runs lint, typecheck, test and build only for affected packages (Turborepo `--affected`).
