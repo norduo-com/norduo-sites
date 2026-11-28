@@ -32,10 +32,18 @@ const header = () => ({
 })
 
 /** A link styled as a button: its text, and a path on the site ("/verkefni") or a full URL. */
-const button = () =>
-  group({
-    label: text({ i18n: true, max: 40 }),
-    link: text(),
+const buttonFields = () => ({
+  label: text({ i18n: true, max: 40 }),
+  link: text(),
+})
+const button = () => group(buttonFields())
+
+/** A step or value: an icon from the fixed set, a title and a short text. */
+const iconItems = () =>
+  repeater({
+    icon: select(BLOCK_ICONS),
+    title: text({ required: true, i18n: true }),
+    text: text({ i18n: true, multiline: true }),
   })
 
 /** Rich text with Berghald's grey mark ("Grátt"), used for the second half of a heading. */
@@ -228,16 +236,12 @@ export default defineCms({
       items: repeater({ item: text({ required: true, i18n: true }) }),
       image: image(),
       dark: toggle(),
-      buttons: repeater({ label: text({ i18n: true, max: 40 }), link: text() }),
+      buttons: repeater(buttonFields()),
     }),
     recentProjects: block(intro()),
     steps: block({
       ...intro(),
-      steps: repeater({
-        icon: select(BLOCK_ICONS),
-        title: text({ required: true, i18n: true }),
-        text: text({ i18n: true, multiline: true }),
-      }),
+      steps: iconItems(),
     }),
     reviews: block({
       ...intro(),
@@ -259,11 +263,7 @@ export default defineCms({
     }),
     values: block({
       ...intro(),
-      items: repeater({
-        icon: select(BLOCK_ICONS),
-        title: text({ required: true, i18n: true }),
-        text: text({ i18n: true, multiline: true }),
-      }),
+      items: iconItems(),
     }),
     team: block({ ...intro(), lead: text({ i18n: true, multiline: true }) }),
     equipment: block({ ...intro(), lead: text({ i18n: true, multiline: true }) }),

@@ -42,7 +42,7 @@ export interface CollectionConfig<F extends Fields = Fields> {
     /** A banner above the list, e.g. which season it is; `null` for none. */
     notice?(now: Date): string | null
     /** Tags on each row, e.g. a service's seasons. */
-    badge?(doc: ListedDoc<F>): Badge | readonly Badge[] | null
+    badge?(doc: ListedDoc<F>): readonly Badge[]
   }
   /** Collection-wide warnings, shown on the list and in the editor. They never block a save. */
   warnings?(docs: readonly ListedDoc<F>[]): readonly string[]
@@ -58,13 +58,10 @@ export interface SingletonConfig<F extends Fields = Fields> {
   note?: boolean
 }
 
-/** A list hook's badges as a list. */
+/** A row's badges; none when the collection has no `list.badge` hook. */
 export function badgesOf(config: CollectionConfig, doc: ListedDoc): readonly Badge[] {
-  const out = config.list?.badge?.(doc) ?? []
-  return isBadgeList(out) ? out : [out]
+  return config.list?.badge?.(doc) ?? []
 }
-
-const isBadgeList = (b: Badge | readonly Badge[]): b is readonly Badge[] => Array.isArray(b)
 
 /**
  * One of the site's fixed pages. Editors can't create or delete pages; each one is saved

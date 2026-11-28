@@ -128,13 +128,9 @@ describe('defineCms', () => {
 describe('badgesOf', () => {
   const doc = { slug: 'a', status: 'published', data: {} } as const
 
-  it('lists one badge, several, or none', () => {
-    const one = { fields: {}, list: { badge: () => ({ label: 'x' }) } }
+  it("are the hook's badges, or none without a hook", () => {
     const many = { fields: {}, list: { badge: () => [{ label: 'x' }, { label: 'y' }] } }
-    const none = { fields: {}, list: { badge: () => null } }
-    expect(badgesOf(one, doc)).toEqual([{ label: 'x' }])
     expect(badgesOf(many, doc).map((b) => b.label)).toEqual(['x', 'y'])
-    expect(badgesOf(none, doc)).toEqual([])
     expect(badgesOf({ fields: {} }, doc)).toEqual([])
   })
 })
