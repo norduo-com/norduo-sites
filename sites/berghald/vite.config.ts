@@ -5,9 +5,14 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [
-    // No remote bindings: AI would need a Cloudflare login, which CI's e2e job doesn't have.
-    // Locally, translation uses the fake translator (TRANSLATOR=fake in .dev.vars).
-    cloudflare({ viteEnvironment: { name: 'ssr' }, remoteBindings: false }),
+    cloudflare({
+      viteEnvironment: { name: 'ssr' },
+      // No remote bindings: AI would need a Cloudflare login, which CI's e2e job doesn't have.
+      // Locally, translation uses the fake translator (TRANSLATOR=fake in .dev.vars).
+      remoteBindings: false,
+      // e2e runs keep their own local D1 and R2 (see playwright.config.ts).
+      persistState: process.env.E2E_STATE ? { path: process.env.E2E_STATE } : true,
+    }),
     tailwindcss(),
     reactRouter(),
   ],
