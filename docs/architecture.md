@@ -41,7 +41,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
    - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
-**Pages = a fixed header + SEO, then an ordered list of blocks.** A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
+**Pages = a fixed header + SEO, then an ordered list of blocks.** In the page's editor, editors add blocks from the page's allowed types, remove them and move them up or down; nothing is stored until the page is saved. Blocks that list a collection or read settings store only their own text (eyebrow, heading, lead, button); their items come from the collection. A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
 
 **Storage:**
 
@@ -59,7 +59,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 ## 3. Rendering & publishing
 
 - The public site is **rendered by the Worker on request** (React Router framework mode, SSR) and **cached at the edge**.
-- The cache key includes a content version in D1 (`site_meta.content_version`), which goes up on every save or delete in Vefstjórn, drafts included. Any change makes pages re-render on their next visit, in every data centre. No rebuild or purge list is needed.
+- The cache key includes a content version in D1 (`site_meta.content_version`), which goes up on every save or delete in Vefstjórn, drafts included. Any change makes pages re-render on their next visit, in every data centre. No rebuild or purge list is needed. The key also includes the deployed Worker version (`CF_VERSION_METADATA`), since a deploy replaces the hashed `/assets` files a cached page links to.
 - Watch out: the Workers free plan allows 10 ms CPU per request. Because of the cache, most visits never render, but if uncached renders go over that limit, the fix is Workers Paid at $5/month (30 s CPU).
 - The Vefstjórn UI is served from the same Worker at `/vefstjorn`.
 
@@ -72,7 +72,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 | API             | Same Worker, running **Hono** at `/api/cms`                                                                                                                                                                                                                                                            |
 | Content         | **D1** (SQLite), accessed with **Drizzle ORM** + migrations                                                                                                                                                                                                                                            |
 | Photos          | Master images (WebP, ≤ 2560 px, no metadata) in **R2**; originals are not kept (see `packages/cms/docs/adr/0001-master-image-only.md`). **Image Transformations** produce sizes and formats on request (WebP/AVIF), with a small fixed set of widths to stay under 5,000 unique transformations/month. |
-| Translation     | **Workers AI** translation model, called from the Hono API                                                                                                                                                                                                                                             |
+| Translation     | **Workers AI** (Gemma 4 26B), run after each save; see §6                                                                                                                                                                                                                                              |
 | Admin login     | **Cloudflare Access** in front of `/vefstjorn` and `/api/cms/admin`                                                                                                                                                                                                                                    |
 | Quote form spam | **Cloudflare Turnstile**                                                                                                                                                                                                                                                                               |
 | Quote form      | Saved to D1 (`enquiries`) **and** emailed to the client via Worker `send_email`. Resend free tier only if customer confirmation emails are needed.                                                                                                                                                     |
@@ -88,16 +88,21 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - The blurred preview (32 px WebP) and the master's width and height are stored in `media` at upload. `media_refs` (document, locale → photo) is rewritten on every save.
   - `/img/<480|960|1440|1920>/<id>` serves the widths from the master through the Images binding, AVIF ≤ 1200 px, else WebP or JPEG by `Accept`, cached with the Cache API. Other widths are 404.
 - **Local dev and tests:** the local Images binding is Sharp. It can't read HEIC, ignores `draw`, `blur` and `quality`, and strips EXIF by itself, so a local EXIF check proves little; the HEIC path is only testable on the PR preview. Miniflare's Node proxy (`packages/cms/src/test/d1.ts`) can't pass a transformer into `draw()`, so the test harness drops it. Safari can't encode WebP, so the JPEG path runs only in the WebKit e2e projects.
-- Larger files such as videos (up to 500 MB) are uploaded straight to R2 with a presigned URL.
+- **Galleries** (`gallery()`, `packages/cms/src/gallery.ts`) hold photos, MP4 videos and YouTube/Vimeo links in order. One photo, or a video with its own poster photo, is the cover; without one, the first photo is. At upload the browser takes a still from about 1 s into the video and stores it as the poster (an ordinary photo upload); where it can't decode the video (e.g. HEVC in some Chrome builds), the editor picks one.
+- **Video upload** (`src/server/video.ts`, `uploadVideo` in `src/admin/upload.ts`): MP4 only, ≤ 200 MB, no count limit; longer videos go on YouTube or Vimeo. The admin API signs a presigned PUT (`aws4fetch`, 15 min) for exactly the declared size and `video/mp4`, so R2 refuses any other body with 403 and no size check is needed afterwards. The browser PUTs the file straight to `media/<id>.mp4` in one request (no multipart); a failed PUT gets one more try with a new URL. The Worker then HEADs the object and adds the `media` row. The bucket needs a PUT CORS rule and the Worker an S3 token (`docs/ops.md`). Without the token, local dev and tests PUT to the Worker instead, with the same checks; production refuses.
+- `/video/<id>.mp4` streams the MP4 from R2 as it is, with byte ranges for seeking.
 - **Formats:** JPG, PNG, HEIC and WebP. Only the master image is kept (ADR 0001); web versions are generated from it.
 - **Alt text:** optional, but can be added on any image. Editing it in Myndasafn updates it everywhere the image is used.
 - **Myndasafn (media library):** all images in one place, with filters (by where they're used, unused, without alt text), search, upload, and "Velja úr myndasafni" (pick from library) in the project editor.
-  - Images used by a service, team member or piece of equipment can't be deleted until they're replaced there.
-  - Deleting an image used in projects removes it from those projects too, after a confirmation.
+  - The rules come from field types, not site names. An image used in an `image()` field anywhere (blocks and `seo()` included) can't be deleted until it's replaced there; the API refuses with 409.
+  - An image used only in `gallery()` fields is removed from them, in every locale, after a confirmation (`DELETE /admin/media/:id?galleries=remove`).
+  - The usage filters read `media_refs`. Only a delete reads the documents it names, to tell `image()` uses from gallery uses.
+  - Search and multi-upload are in; "Velja úr myndasafni" isn't built yet.
 
 ## 6. Languages
 
-- **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
+- **react-i18next**: Icelandic first, English machine translated on save. Content translations are stored in D1, per locale.
+- **Editing other locales:** the Íslenska / Enska switch in each Vefstjórn editor (§6); the site has no `/en` routes until #32.
 - **Namespaces:**
   - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
   - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).
@@ -105,10 +110,15 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - The admin loads `vefstjorn` + `cms`, Icelandic only in v1.
 - JSON is bundled statically and i18next starts synchronously, also on SSR. A missing key renders as the raw key and never crashes; a unit test fails `pnpm check` on a missing `is` label and on `site` key sets that differ between `is` and `en`.
 - **Files vs D1:** text an editor would plausibly reword lives in D1 (page headers, block text, nav labels, settings). Microcopy tied to code lives in files (form labels and errors, buttons, aria labels, the language switch, the cookie banner, season and month names).
-- **English content = machine draft, then edited:**
-  - Each translatable field in Vefstjórn has a "Þýða á ensku" (translate to English) button. It calls Workers AI through the Hono API and fills in the English field.
-  - A machine-translated field is flagged "Óyfirfarið" (not reviewed, `needs_review` in D1) until someone edits or approves it.
-  - English fields that are still empty fall back to Icelandic on the public site, field by field (`withFallback`, applied by the site loaders `listPublished`, `getPage`, `getSingleton` and `pageHeaders`). An item with no English row still shows in English.
+- **English content = machine draft on save, then edited** (`packages/cms/src/translate.ts`, `src/server/translate.ts`; the model test is on issue #31):
+  - Saving the Icelandic version writes it to D1 first. Every other locale's row is then rebuilt from it: the same structure and untranslated values (photos, phone, links), with each translatable text (`i18n: true`, also inside groups, repeaters, blocks and `seo()`) replaced by its translation. A text with no translation yet keeps the Icelandic, so the public English page falls back field by field.
+  - The row's `translations` column holds, per text (keyed by its path, e.g. `seo.title`, `blocks.0.data.heading`), a hash of its Icelandic source and its state: `machine` (shown as "Óyfirfarið"), `reviewed`, `pending` or `failed`. Only texts whose source changed are translated again; a text that only moved (a reordered block) keeps its translation. `needs_review` is set while any text is `machine`.
+  - After the response (`waitUntil`), the pending texts of a save go to Workers AI in **one** call as a JSON array: `@cf/google/gemma-4-26b-a4b-it` with thinking off, about 10 neurons for 12 strings. `@cf/qwen/qwen3.8-27b` is the fallback for segments Gemma gets wrong or when it is busy (`3040`). The site's `translation` config (a line about the site and a glossary) goes into the system prompt.
+  - Rich text is sent one block or list item per segment, with formatting as numbered placeholders (`[1]…[/1]`), so links and marks never go to the model. A reply whose segment count or placeholders don't match is not used; if the fallback fails as well, the text is marked `failed` and keeps the Icelandic.
+  - When the daily allowance runs out (`3036`), texts stay `pending`. The nightly cron (03:00 UTC, after the 00:00 reset) retries them (`retryTranslations`).
+  - In Vefstjórn, each editor has an Íslenska / Enska switch. The English tab shows only the translatable texts, each flagged "Óyfirfarið" until someone edits it or clicks Samþykkja. Clearing an English text has it translated again. English can't be saved before the Icelandic, and Drög/Birt follow the Icelandic version.
+  - Local dev and e2e have no AI binding (`remoteBindings: false`); `TRANSLATOR=fake` in `.dev.vars` writes `[en] <Icelandic>` instead. The real model runs on the PR preview and the live site.
+  - The site loaders (`listPublished`, `getPage`, `getSingleton`, `pageHeaders`) also lay each locale's row over the Icelandic one field by field (`withFallback`), so an English text left empty, or an item with no English row, shows the Icelandic.
 - **URLs:** Icelandic at the root (`/verkefni`), English under `/en` (`/en/projects`). Each page's path per locale is fixed in `cms.config.ts`; document slugs are shared, so the language switch (`switchLocalePath`) swaps the prefix and page segment, keeps the slug and the query, and is a plain link. `<html lang>` comes from the path. No redirect by `Accept-Language` or cookie.
 - **SEO:** each page has a self canonical and `hreflang` `is`, `en` and `x-default` (Icelandic). `/sitemap.xml` lists both with `xhtml:link` alternates. Every host except `berghald.is` sends `X-Robots-Tag: noindex` (the pre-launch host, PR previews, localhost).
 
@@ -155,7 +165,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 - Turborepo's `--affected` means only the changed parts get linted, tested and built.
 - Changes to `*.md` files only run the Prettier check: lint, typecheck, test, build, e2e, preview and deploy are skipped.
-- The pnpm store, the Turborepo cache and Playwright's Chromium and WebKit are cached between runs. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
+- The pnpm store and the Turborepo cache are cached between runs. The e2e job runs in the Playwright image (`mcr.microsoft.com/playwright`), which already has Chromium, WebKit and their system libraries; its tag must match `@playwright/test`, and a CI step fails if it doesn't. `.dev.vars` is a build input, so the e2e build (which bundles it) never shares a cache entry with a deploy build.
 - A change in `sites/berghald` runs only Berghald's tests.
 - A change in `packages/cms` (or `ui`/`config`) runs the CMS tests and the tests of every site that depends on it.
 - Deploys go per site via Wrangler on push to `main` (`turbo run deploy --affected`).
@@ -163,8 +173,12 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 ## 11. Monitoring & analytics
 
 - **Sentry (free tier)**, with the focus on Vefstjórn:
-  - React SDK in the admin UI
-  - Cloudflare SDK in the Hono API, to catch failed saves and uploads
+  - React SDK in the admin UI only, loaded after hydration, so the public site never ships it
+  - Cloudflare SDK around the whole Worker: Hono's `onError`, React Router's `handleError` and the nightly backup
+  - No personal data: Sentry 11's `dataCollection` turns off user info, cookies, bodies, query strings and all but three headers, and `beforeSend` strips them again (`app/sentry.ts`)
+  - One Sentry project per platform: the Worker's DSN is the `SENTRY_DSN` secret, Vefstjórn's `SENTRY_ADMIN_DSN`. Without them Sentry is off (local dev, e2e). `SENTRY_ENVIRONMENT` tags production vs preview, and the Worker version id is the release
+  - No tracing: on Workers Free every span costs CPU from the 10 ms budget
+  - Source maps: every build makes them; before each deploy `scripts/sourcemaps.sh` injects debug IDs, uploads them to both projects (`SENTRY_AUTH_TOKEN`, a GitHub secret in `production` and `preview`) and deletes every `.map`, so none is ever served
 - **Uptime check** on berghald.is
 - **Google Analytics**, since ads may run later:
   - Wired through the cookie bar with **Google Consent Mode v2**, which is required for ads in the EU/EEA
@@ -176,7 +190,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **In:**
   - Yfirlit, Verkefni, Myndasafn, Þjónusta, Teymi, Tæki, Síður og textar, Stillingar
   - Drafts
-  - "Þýða á ensku" machine-translation drafts
+  - English machine-translation drafts on save, flagged "Óyfirfarið"
   - Enquiries saved to D1, with no inbox screen yet
 - **Out:** GA on Yfirlit, SEO overview/score, tutorial videos, users screen/invites, Google/Apple login, admin language switch, reviews editing, enquiries inbox.
 
@@ -185,4 +199,4 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - Closed: the admin API verifies the Cloudflare Access JWT (`cf-access-jwt-assertion`): RS256 signature against the team's certs, AUD tag, issuer and expiry (`packages/cms/src/server/access.ts`). The team domain and AUD are `vars` in `wrangler.jsonc`. In production a missing setting fails closed (401).
 - Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
 - `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
-- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except gallery, repeater and blocks. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
+- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except repeater; a page's blocks are added, removed and moved in its editor. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.

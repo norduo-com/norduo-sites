@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { galleryValue } from './gallery'
 import { richTextSchema } from './richtext'
 
 /**
@@ -12,7 +13,7 @@ import { richTextSchema } from './richtext'
 export interface FieldOptions<R extends boolean | undefined = undefined> {
   /** Fields are optional unless `required: true`. */
   required?: R
-  /** Translatable: stored per locale, gets the "Þýða á ensku" button. */
+  /** Translatable: stored per locale, machine translated from the default locale on save. */
   i18n?: boolean
 }
 
@@ -135,8 +136,12 @@ export function image<R extends boolean | undefined = undefined>(options: FieldO
   return make('image', imageValue, options)
 }
 
+/**
+ * Photos, MP4 videos (≤ 200 MB, uploaded straight to R2) and YouTube/Vimeo links in the
+ * editor's order, with one cover (`gallery.ts`).
+ */
 export function gallery<R extends boolean | undefined = undefined>(options: FieldOptions<R> = {}) {
-  return make('gallery', z.array(imageValue), options)
+  return make('gallery', galleryValue, options)
 }
 
 export function select<

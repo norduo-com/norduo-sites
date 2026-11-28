@@ -2,6 +2,7 @@ import { seoMeta } from '@norduo/cms'
 import { getPage, listPublished, mediaByIds } from '@norduo/cms/server'
 import { useTranslation } from 'react-i18next'
 
+import { Blocks, renderBlocks } from '~/components/Blocks'
 import { CallButton } from '~/components/CallButton'
 import { PageHeader } from '~/components/PageHeader'
 import { Photo } from '~/components/Photo'
@@ -38,7 +39,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
   )
   // Only the header goes to the browser, not the whole page.
   const header = page && { eyebrow: page.eyebrow, heading: page.heading, lead: page.lead }
-  return { head, header, equipment }
+  return {
+    head,
+    header,
+    blocks: renderBlocks(page?.blocks, cms.blocks.text.fields.body.marks),
+    equipment,
+  }
 }
 
 export default function Home({ loaderData }: Route.ComponentProps) {
@@ -58,6 +64,7 @@ export default function Home({ loaderData }: Route.ComponentProps) {
       </PageHeader>
       <main id="main" className="flex flex-col gap-s px-g pt-s">
         <CallButton phone="691 8944" />
+        <Blocks blocks={loaderData.blocks} />
         {loaderData.equipment.length > 0 && (
           <section aria-labelledby="equipment-heading">
             <h2 id="equipment-heading" className="text-3xl">

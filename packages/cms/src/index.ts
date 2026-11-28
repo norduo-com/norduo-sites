@@ -1,5 +1,6 @@
 export * from './define'
 export * from './fields'
+export * from './gallery'
 export * from './labels'
 export * from './locales'
 export * from './media'

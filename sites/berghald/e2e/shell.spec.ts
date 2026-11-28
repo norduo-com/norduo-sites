@@ -51,7 +51,7 @@ test('the sitemap lists both languages with alternates', async ({ request }) => 
   expect(xml).not.toContain('takk-fyrir')
 })
 
-test('English pages fill untranslated fields from Icelandic, field by field', async ({
+test('English pages show the English text, or the Icelandic until it is translated', async ({
   page,
   request,
 }, testInfo) => {
@@ -59,10 +59,11 @@ test('English pages fill untranslated fields from Icelandic, field by field', as
   const save = (locale: string, data: Record<string, string>) =>
     request.put('/api/cms/admin/content/pages/about', { data: { locale, data } })
   expect((await save('is', { title: 'Um okkur', heading: 'Fjölskyldufyrirtæki' })).ok()).toBe(true)
-  expect((await save('en', { title: 'About Berghald', heading: '' })).ok()).toBe(true)
+  expect((await save('en', { title: 'About Berghald' })).ok()).toBe(true)
 
   await page.goto('/en/about')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Fjölskyldufyrirtæki')
+  // The fake translator (e2e) writes "[en] <Icelandic>"; before it runs, the Icelandic shows.
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Fjölskyldufyrirtæki')
   // Menu labels are each page's title.
   await expect(page.getByRole('link', { name: 'About Berghald' }).first()).toHaveAttribute(
     'href',

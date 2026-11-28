@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, max, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, max, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/d1'
 import { type Context, Hono } from 'hono'
 import { z } from 'zod'
@@ -14,12 +14,36 @@ import {
 } from '../define'
 import { type Fields, schemaOf } from '../fields'
 import { withFallback } from '../locales'
-import { mediaIdsOf } from '../media'
+import { mediaIdsOf, type MediaUse, mediaUsesOf, removeFromGalleries } from '../media'
 import { slugify, uniqueSlug } from '../slug'
+import {
+  editLocale,
+  type LocaleRow,
+  needsReview,
+  planLocale,
+  type Translations,
+} from '../translate'
 import { verifyAccessJwt } from './access'
 import { masterFromRaw, type MediaFailure, putRaw, storeBrowserMaster } from './media'
+import {
+  bumpContentVersion,
+  fakeTranslator,
+  retryPendingTranslations,
+  translateDocument,
+  type Translator,
+  workersAiTranslator,
+} from './translate'
+import { completeVideo, presignVideo, putLocalVideo } from './video'
 
 export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
+export {
+  fakeTranslator,
+  TRANSLATION_MODELS,
+  TranslationError,
+  type Translator,
+  workersAiTranslator,
+} from './translate'
+export { createVideoRoute, type VideoTicket } from './video'
 
 export interface CmsBindings {
   DB: D1Database
@@ -32,11 +56,30 @@ export interface CmsBindings {
   ACCESS_TEAM_DOMAIN?: string
   /** AUD tag of the site's Access application. */
   ACCESS_AUD?: string
+  /** Workers AI: machine translation of translatable fields after a save. */
+  AI?: Ai
+  /** "fake" translates with `fakeTranslator` (local development and e2e, which have no AI). */
+  TRANSLATOR?: string
+  /** Name of the bucket behind `MEDIA`: videos are PUT to it through R2's S3 API. */
+  R2_BUCKET?: string
+  /** Secrets for presigned video uploads: the account and a token scoped to the bucket. */
+  R2_ACCOUNT_ID?: string
+  R2_ACCESS_KEY_ID?: string
+  R2_SECRET_ACCESS_KEY?: string
 }
 
 export interface CmsHooks {
   /** Called after a quote enquiry is saved, e.g. to email it. */
   onEnquiry?: (enquiry: EnquiryInput, env: CmsBindings) => Promise<void> | void
+  /** Replaces the translator picked from the bindings (tests). */
+  translator?: Translator
+}
+
+/** The translator for this request: the hook's, the fake one, Workers AI, or none. */
+function translatorFor(config: CmsConfig, env: CmsBindings, hooks: CmsHooks): Translator | null {
+  if (hooks.translator) return hooks.translator
+  if (env.TRANSLATOR === 'fake') return fakeTranslator
+  return env.AI ? workersAiTranslator(env.AI, config.translation) : null
 }
 
 export const enquiryInput = z.object({
@@ -52,7 +95,8 @@ const saveInput = z.object({
   locale: z.string().min(2).max(10).optional(),
   status: z.enum(['draft', 'published']).optional(),
   data: z.record(z.string(), z.unknown()),
-  needsReview: z.boolean().optional(),
+  /** Translated locales only: keys of machine translations an editor approved. */
+  approve: z.array(z.string().max(200)).max(500).optional(),
 })
 
 export interface AdminDocument {
@@ -60,7 +104,38 @@ export interface AdminDocument {
   locale: string
   status: 'draft' | 'published'
   data: Record<string, unknown>
+  /** Translated locales: the state of each translatable text, keyed by its path. */
+  translations: Translations | null
   updatedAt: number
+}
+
+/** A document that uses a photo; `title` is a collection item's title field, if it has one. */
+export interface MediaUseRef {
+  type: string
+  slug: string
+  title: string | null
+}
+
+/** The documents that use a photo, split by whether they block deleting it. */
+export interface MediaUses {
+  /** In an `image()` field: the photo can't be deleted until it's replaced there. */
+  image: MediaUseRef[]
+  /** Only in galleries: deleting the photo removes it from them. */
+  gallery: MediaUseRef[]
+}
+
+/** A photo in Myndasafn. `uses` comes from `media_refs`, one per document. */
+export interface AdminMedia {
+  id: string
+  filename: string
+  /** image/webp for a photo's master, video/mp4 for a video. */
+  mime: string
+  width: number | null
+  height: number | null
+  lqip: string | null
+  alt: string | null
+  createdAt: number
+  uses: { type: string; slug: string }[]
 }
 
 const CONTENT_VERSION = 'content_version'
@@ -74,15 +149,6 @@ export async function contentVersion(db: D1Database): Promise<number> {
     .get()
   return row?.value ?? 0
 }
-
-function bumpContentVersion(db: Db) {
-  return db
-    .insert(siteMeta)
-    .values({ key: CONTENT_VERSION, value: 1 })
-    .onConflictDoUpdate({ target: siteMeta.key, set: { value: sql`${siteMeta.value} + 1` } })
-}
-/** Names in SQL JSON paths come from the config; only plain identifiers are allowed. */
-const isIdentifier = (name: string) => /^[A-Za-z_]\w*$/.test(name)
 
 /**
  * Published documents of one type for a site loader, in order. In a locale other than the
@@ -228,6 +294,36 @@ type Db = ReturnType<typeof drizzle>
 /** Every page is stored under this type, with the page name as its slug. */
 const PAGES_TYPE = PAGES_SCREEN
 
+/** Fields of one document; a page's depend on which page it is. */
+function fieldsOfDocument(config: CmsConfig, type: string, slug: string | null) {
+  const singletons = config.singletons ?? {}
+  const pages = config.pages ?? {}
+  if (Object.hasOwn(config.collections, type)) return config.collections[type]?.fields
+  if (Object.hasOwn(singletons, type)) return singletons[type]?.fields
+  if (type === PAGES_TYPE && slug !== null && Object.hasOwn(pages, slug))
+    return pageFields(config, slug)
+  return undefined
+}
+
+/** Locales translated from the default one. */
+const targetLocales = (config: CmsConfig) =>
+  config.site.locales.filter((l) => l !== config.site.defaultLocale)
+
+/**
+ * Nightly: translates every text still pending, e.g. after the day's free AI allowance ran
+ * out (it resets at 00:00 UTC). Call it from the site's `scheduled` handler.
+ */
+export async function retryTranslations(config: CmsConfig, env: CmsBindings, hooks: CmsHooks = {}) {
+  const translate = translatorFor(config, env, hooks)
+  if (!translate) return
+  await retryPendingTranslations(env.DB, config, translate, (type, slug) =>
+    fieldsOfDocument(config, type, slug),
+  )
+}
+
+/** Names in SQL JSON paths come from the config; only plain identifiers are allowed. */
+const isIdentifier = (name: string) => /^[A-Za-z_]\w*$/.test(name)
+
 /**
  * Fills the `slug()` fields of a save. A slug is shared by every locale of a document. Until
  * the document is first published it is made from its `from` field in the default locale,
@@ -347,15 +443,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     Object.hasOwn(collections, type) ||
     Object.hasOwn(singletons, type) ||
     (hasPages && type === PAGES_TYPE)
-  /** Fields of one document; a page's depend on which page it is. */
-  const fieldsOf = (type: string, slug: string | null) =>
-    Object.hasOwn(collections, type)
-      ? collections[type]?.fields
-      : Object.hasOwn(singletons, type)
-        ? singletons[type]?.fields
-        : type === PAGES_TYPE && slug !== null && Object.hasOwn(pages, slug)
-          ? pageFields(config, slug)
-          : undefined
+  const fieldsOf = (type: string, slug: string | null) => fieldsOfDocument(config, type, slug)
   /** Only collections with `drafts: true` can hold Drög; everything else goes live on save. */
   const hasDrafts = (type: string) =>
     Object.hasOwn(collections, type) && collections[type]?.drafts === true
@@ -411,6 +499,11 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     await next()
   })
 
+  // Throws on purpose, to check that the site's error reporting sees Worker errors.
+  app.get('/admin/debug/error', () => {
+    throw new Error('Vefstjórn test error (GET /admin/debug/error)')
+  })
+
   app.get('/admin/config', (c) =>
     c.json({
       site: config.site,
@@ -426,6 +519,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     locale: documents.locale,
     status: documents.status,
     data: documents.data,
+    translations: documents.translations,
     updatedAt: documents.updatedAt,
   }
   const toAdmin = (row: { updatedAt: Date } & Omit<AdminDocument, 'updatedAt'>): AdminDocument => ({
@@ -458,7 +552,41 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     return c.json(toAdmin(row))
   })
 
-  /** Validates a save body against the type's fields, or returns an error response. */
+  /** One locale's row of a save. */
+  interface SaveRow {
+    locale: string
+    data: Record<string, unknown>
+    translations: Translations | null
+    mediaIds: string[]
+    /** Keys of texts to translate once the save is in D1. */
+    todo: string[]
+  }
+
+  const rowOf = (row: LocaleRow & { todo: string[] }, locale: string, fields: Fields): SaveRow => ({
+    locale,
+    data: row.data,
+    translations: row.translations,
+    mediaIds: mediaIdsOf(fields, row.data),
+    todo: row.todo,
+  })
+
+  /** Every locale's row of one document. */
+  const localeRows = (db: Db, type: string, slug: string) =>
+    db
+      .select({
+        locale: documents.locale,
+        status: documents.status,
+        data: documents.data,
+        translations: documents.translations,
+      })
+      .from(documents)
+      .where(and(eq(documents.type, type), eq(documents.slug, slug)))
+
+  /**
+   * Validates a save body against the type's fields, or returns an error response. A save in
+   * the default locale also rebuilds every other locale's row from it; a save in another
+   * locale only changes that locale's translatable texts.
+   */
   async function readSave(
     c: { req: { json: () => Promise<unknown> }; env: CmsBindings },
     type: string,
@@ -470,34 +598,88 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!body.success) return { error: 400 as const, issues: z.treeifyError(body.error) }
     const locale = body.data.locale ?? config.site.defaultLocale
     if (!isLocale(locale)) return { error: 400 as const, issues: { errors: ['Unknown locale'] } }
+    const db = drizzle(c.env.DB)
+
+    if (locale !== config.site.defaultLocale) {
+      // A translation follows its source: it can't exist, or change status, on its own.
+      const rows = id ? await localeRows(db, type, id) : []
+      const source = rows.find((r) => r.locale === config.site.defaultLocale)
+      if (!source) return { error: 409 as const, issues: 'sourceFirst' as const }
+      const own = rows.find((r) => r.locale === locale)
+      const prev = own
+        ? { data: own.data, translations: own.translations ?? {} }
+        : planLocale(fields, source.data, null)
+      const edited = editLocale(fields, source.data, prev, body.data.data, body.data.approve)
+      const data = schemaOf(fields).safeParse(edited.data)
+      if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
+      return {
+        status: source.status,
+        slugs: {},
+        rows: [rowOf({ ...edited, data: data.data }, locale, fields)],
+      }
+    }
+
     const data = schemaOf(fields).safeParse(body.data.data)
     if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
     const status = hasDrafts(type) ? (body.data.status ?? 'draft') : 'published'
     const values = data.data as Record<string, unknown>
     const mediaIds = mediaIdsOf(fields, values)
     if (mediaIds.length) {
-      const known = await drizzle(c.env.DB)
-        .select({ id: media.id })
-        .from(media)
-        .where(inArray(media.id, mediaIds))
+      const known = await db.select({ id: media.id }).from(media).where(inArray(media.id, mediaIds))
       if (known.length !== mediaIds.length)
         return { error: 422 as const, issues: 'unknownMedia' as const }
     }
     const slugs = await resolveSlugs(
-      drizzle(c.env.DB),
+      db,
       { type, id, locale, defaultLocale: config.site.defaultLocale },
       fields,
       values,
     )
-    return {
-      locale,
-      status,
-      slugs,
-      mediaIds,
-      data: values,
-      needsReview: body.data.needsReview ?? false,
+    const existing = id ? await localeRows(db, type, id) : []
+    const targets = targetLocales(config).map((target) => {
+      const own = existing.find((r) => r.locale === target)
+      const prev = own ? { data: own.data, translations: own.translations ?? {} } : null
+      return rowOf(planLocale(fields, values, prev), target, fields)
+    })
+    const main: SaveRow = { locale, data: values, translations: null, mediaIds, todo: [] }
+    return { status, slugs, rows: [main, ...targets] }
+  }
+
+  /** Translates what a save left pending, after the response; a save never waits on it. */
+  function translateLater(
+    c: Context<{ Bindings: CmsBindings }>,
+    type: string,
+    slug: string,
+    rows: SaveRow[],
+  ) {
+    const translate = translatorFor(config, c.env, hooks)
+    const fields = fieldsOf(type, slug)
+    if (!translate || !fields) return
+    const work = Promise.all(
+      rows
+        .filter((r) => r.todo.length > 0)
+        .map((r) =>
+          translateDocument(c.env.DB, translate, {
+            type,
+            slug,
+            fields,
+            from: config.site.defaultLocale,
+            to: r.locale,
+          }),
+        ),
+    )
+    try {
+      c.executionCtx.waitUntil(work)
+    } catch {
+      // No execution context (a plain app.request in tests): the work still runs.
     }
   }
+
+  const rowValues = (r: SaveRow) => ({
+    data: r.data,
+    translations: r.translations,
+    needsReview: r.translations ? needsReview(r.translations) : false,
+  })
 
   app.post('/admin/content/:type', async (c) => {
     const type = c.req.param('type')
@@ -514,21 +696,23 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
       .get()
     const now = new Date()
     await db.batch([
-      db.insert(documents).values({
-        id: crypto.randomUUID(),
-        type,
-        slug,
-        locale: save.locale,
-        status: save.status,
-        data: save.data,
-        needsReview: save.needsReview,
-        sort: (last?.sort ?? -1) + 1,
-        updatedAt: now,
-        publishedAt: save.status === 'published' ? now : null,
-      }),
-      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
+      db.insert(documents).values(
+        save.rows.map((r) => ({
+          id: crypto.randomUUID(),
+          type,
+          slug,
+          locale: r.locale,
+          status: save.status,
+          ...rowValues(r),
+          sort: (last?.sort ?? -1) + 1,
+          updatedAt: now,
+          publishedAt: save.status === 'published' ? now : null,
+        })),
+      ),
+      ...save.rows.flatMap((r) => setRefs(db, { type, slug, locale: r.locale }, r.mediaIds)),
       bumpContentVersion(db),
     ])
+    translateLater(c, type, slug, save.rows)
     return c.json({ slug }, 201)
   })
 
@@ -548,21 +732,20 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!exists && !isSingleton) return c.json({ error: 'Not found' }, 404)
 
     const now = new Date()
-    const row = {
-      data: save.data,
-      needsReview: save.needsReview,
-      status: save.status,
-      updatedAt: now,
-    }
     const ofDoc = and(eq(documents.type, type), eq(documents.slug, slug))
-    await db.batch([
-      db
+    const upserts = save.rows.map((r) => {
+      const row = { ...rowValues(r), status: save.status, updatedAt: now }
+      return db
         .insert(documents)
-        .values({ id: crypto.randomUUID(), type, slug, locale: save.locale, ...row })
+        .values({ id: crypto.randomUUID(), type, slug, locale: r.locale, ...row })
         .onConflictDoUpdate({
           target: [documents.type, documents.slug, documents.locale],
           set: row,
-        }),
+        })
+    })
+    await db.batch([
+      bumpContentVersion(db),
+      ...upserts,
       // Drög/Birt belongs to the document, so every locale follows it.
       db.update(documents).set({ status: save.status }).where(ofDoc),
       db
@@ -572,9 +755,9 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
           and(ofDoc, eq(documents.status, 'published'), sql`${documents.publishedAt} is null`),
         ),
       ...setSlugs(db, type, slug, save.slugs),
-      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
-      bumpContentVersion(db),
+      ...save.rows.flatMap((r) => setRefs(db, { type, slug, locale: r.locale }, r.mediaIds)),
     ])
+    translateLater(c, type, slug, save.rows)
     return c.json({ ok: true })
   })
 
@@ -623,6 +806,197 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     const result = await masterFromRaw(c.env, c.req.param('id'))
     if ('status' in result) return refused(c, 'rawMaster', result)
     return c.json(result.media, result.created ? 201 : 200)
+  })
+
+  // Videos: a presigned URL first, the browser PUTs the MP4 straight to R2, then the row.
+  app.post('/admin/media/video', async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { size?: unknown; type?: unknown } | null
+    const input = { size: body?.size, type: body?.type }
+    const result = await presignVideo(
+      c.env,
+      input,
+      (id, size) => `${c.req.path}/${id}/local?size=${String(size)}`,
+    )
+    if ('status' in result) return refused(c, 'videoUrl', result, input)
+    return c.json(result, 201)
+  })
+
+  // Stands in for R2 when there is no S3 token (local dev and tests only).
+  app.put('/admin/media/video/:id/local', async (c) => {
+    const result = await putLocalVideo(
+      c.env,
+      c.req.raw,
+      c.req.param('id'),
+      Number(c.req.query('size')),
+    )
+    if ('status' in result) return c.json({ error: result.error }, result.status)
+    return c.json(result)
+  })
+
+  app.post('/admin/media/video/:id', async (c) => {
+    const body = ((await c.req.json().catch(() => null)) ?? {}) as Record<string, unknown>
+    const result = await completeVideo(c.env, c.req.param('id'), body)
+    if ('status' in result) return refused(c, 'video', result)
+    return c.json(result.media, result.created ? 201 : 200)
+  })
+
+  // ---------- Myndasafn ----------
+
+  app.get('/admin/media', async (c) => {
+    const db = drizzle(c.env.DB)
+    const [rows, refs] = await Promise.all([
+      db
+        .select({
+          id: media.id,
+          filename: media.filename,
+          mime: media.mime,
+          width: media.width,
+          height: media.height,
+          lqip: media.lqip,
+          alt: media.alt,
+          createdAt: media.createdAt,
+        })
+        .from(media)
+        .orderBy(desc(media.createdAt)),
+      db
+        .selectDistinct({
+          mediaId: mediaRefs.mediaId,
+          type: mediaRefs.docType,
+          slug: mediaRefs.docSlug,
+        })
+        .from(mediaRefs),
+    ])
+    const usesOf = new Map<string, AdminMedia['uses']>()
+    for (const { mediaId, type, slug } of refs)
+      usesOf.set(mediaId, [...(usesOf.get(mediaId) ?? []), { type, slug }])
+    return c.json(
+      rows.map((r): AdminMedia => ({
+        ...r,
+        createdAt: r.createdAt.getTime(),
+        uses: usesOf.get(r.id) ?? [],
+      })),
+    )
+  })
+
+  const altInput = z.object({ alt: z.string().trim().max(300) })
+
+  // Alt lives on the photo, so editing it here changes it everywhere the photo is shown.
+  app.patch('/admin/media/:id', async (c) => {
+    const body = altInput.safeParse(await c.req.json().catch(() => null))
+    if (!body.success) return c.json({ error: z.treeifyError(body.error) }, 400)
+    const db = drizzle(c.env.DB)
+    const id = c.req.param('id')
+    const [updated] = await db.batch([
+      db
+        .update(media)
+        .set({ alt: body.data.alt || null })
+        .where(eq(media.id, id))
+        .returning({ id: media.id }),
+      bumpContentVersion(db),
+    ])
+    if (updated.length === 0) return c.json({ error: 'notFound' }, 404)
+    return c.json({ ok: true })
+  })
+
+  /**
+   * The documents that use a photo, read through `media_refs`, each with how it uses the
+   * photo. A document counts as an `image` use if any of its locales has it in an `image()`.
+   */
+  async function documentsUsing(db: Db, id: string) {
+    const refs = await db
+      .selectDistinct({ type: mediaRefs.docType, slug: mediaRefs.docSlug })
+      .from(mediaRefs)
+      .where(eq(mediaRefs.mediaId, id))
+    const rows = refs.length
+      ? await db
+          .select({
+            id: documents.id,
+            type: documents.type,
+            slug: documents.slug,
+            locale: documents.locale,
+            data: documents.data,
+          })
+          .from(documents)
+          // A subquery, not one condition per document: D1 allows 100 bound parameters.
+          .where(
+            sql`exists (select 1 from ${mediaRefs} where ${mediaRefs.mediaId} = ${id}
+              and ${mediaRefs.docType} = ${documents.type} and ${mediaRefs.docSlug} = ${documents.slug})`,
+          )
+      : []
+    const out: (MediaUseRef & { use: MediaUse; rows: typeof rows; fields: Fields })[] = []
+    for (const ref of refs) {
+      const fields = fieldsOf(ref.type, ref.slug)
+      if (!fields) continue
+      const own = rows.filter((r) => r.type === ref.type && r.slug === ref.slug)
+      const uses = own.map((r) => mediaUsesOf(fields, r.data).get(id))
+      if (!uses.some(Boolean)) continue
+      const titleField = Object.hasOwn(collections, ref.type)
+        ? collections[ref.type]?.titleField
+        : undefined
+      const title = titleField
+        ? (own.find((r) => r.locale === config.site.defaultLocale) ?? own[0])?.data[titleField]
+        : undefined
+      out.push({
+        type: ref.type,
+        slug: ref.slug,
+        title: typeof title === 'string' && title ? title : null,
+        use: uses.includes('image') ? 'image' : 'gallery',
+        rows: own,
+        fields,
+      })
+    }
+    return out
+  }
+
+  const usesBody = (docs: Awaited<ReturnType<typeof documentsUsing>>): MediaUses => ({
+    image: docs
+      .filter((d) => d.use === 'image')
+      .map(({ type, slug, title }) => ({ type, slug, title })),
+    gallery: docs
+      .filter((d) => d.use === 'gallery')
+      .map(({ type, slug, title }) => ({ type, slug, title })),
+  })
+
+  app.get('/admin/media/:id/uses', async (c) => {
+    const id = c.req.param('id')
+    const db = drizzle(c.env.DB)
+    const exists = await db.select({ id: media.id }).from(media).where(eq(media.id, id)).get()
+    if (!exists) return c.json({ error: 'notFound' }, 404)
+    return c.json(usesBody(await documentsUsing(db, id)))
+  })
+
+  /**
+   * Deletes a photo. Refused while an `image()` field uses it (it must be replaced there
+   * first). Galleries that have it lose it, but only with `?galleries=remove`, which Vefstjórn
+   * sends after the editor confirms.
+   */
+  app.delete('/admin/media/:id', async (c) => {
+    const id = c.req.param('id')
+    const db = drizzle(c.env.DB)
+    const row = await db.select({ key: media.key }).from(media).where(eq(media.id, id)).get()
+    if (!row) return c.json({ error: 'notFound' }, 404)
+    const docs = await documentsUsing(db, id)
+    const uses = usesBody(docs)
+    if (uses.image.length) return c.json({ error: 'inUse', uses }, 409)
+    if (uses.gallery.length && c.req.query('galleries') !== 'remove')
+      return c.json({ error: 'inGalleries', uses }, 409)
+
+    const now = new Date()
+    await db.batch([
+      db.delete(mediaRefs).where(eq(mediaRefs.mediaId, id)),
+      ...docs.flatMap((d) =>
+        d.rows.map((r) =>
+          db
+            .update(documents)
+            .set({ data: removeFromGalleries(d.fields, r.data, id), updatedAt: now })
+            .where(eq(documents.id, r.id)),
+        ),
+      ),
+      db.delete(media).where(eq(media.id, id)),
+      bumpContentVersion(db),
+    ])
+    await c.env.MEDIA.delete(row.key)
+    return c.json({ ok: true })
   })
 
   return app

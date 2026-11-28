@@ -16,19 +16,19 @@
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
     },
     "test": {
-      "outputs": ["coverage/**"],
+      "outputs": [],
       "inputs": ["$TURBO_DEFAULT$", "!**/*.md"]
     },
     "test:e2e": {
       "dependsOn": ["build"],
       "outputs": ["playwright-report/**", "test-results/**"],
       "inputs": ["$TURBO_DEFAULT$", ".dev.vars", "!**/*.md"],
-      "passThroughEnv": ["CI"]
+      "passThroughEnv": ["CI", "PLAYWRIGHT_BROWSERS_PATH"]
     },
     "deploy": {
       "dependsOn": ["build"],
       "cache": false,
-      "passThroughEnv": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"]
+      "passThroughEnv": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "SENTRY_AUTH_TOKEN"]
     },
     "dev": {
       "cache": false,
@@ -38,7 +38,12 @@
       "dependsOn": ["build"],
       "cache": false,
       "env": ["CLOUDFLARE_ENV"],
-      "passThroughEnv": ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID", "PREVIEW_ALIAS"]
+      "passThroughEnv": [
+        "CLOUDFLARE_API_TOKEN",
+        "CLOUDFLARE_ACCOUNT_ID",
+        "PREVIEW_ALIAS",
+        "SENTRY_AUTH_TOKEN"
+      ]
     }
   }
 }

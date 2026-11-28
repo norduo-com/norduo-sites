@@ -16,7 +16,7 @@ _Avoid_: Global, single
 One of a site's fixed set of public pages. It has a header, SEO fields and an ordered list of blocks. Editors fill and arrange pages but cannot create or delete them.
 _Avoid_: Route, screen
 
-**Block**:
+**Block** (UI: _Hluti_, listed under _Efni síðunnar_):
 A section of a page that an editor can add, remove or move, chosen from the block types that page allows. The site decides how each block type looks.
 _Avoid_: Component, widget, module
 
@@ -55,3 +55,7 @@ _Avoid_: Lead, message, submission, ticket
 **Job** (UI: _Verk_, link _Merkja sem verk_):
 An enquiry the site owner has marked as having led to work. Marking it lengthens how long it is kept.
 _Avoid_: Order, conversion, won
+
+**Machine translation** (UI: _Óyfirfarið_ until reviewed):
+An English text the CMS wrote from the Icelandic after a save. It is flagged Óyfirfarið in Vefstjórn until someone edits or approves it (_Samþykkja_), and shown on the public site meanwhile.
+_Avoid_: Auto-translate, draft translation

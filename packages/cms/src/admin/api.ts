@@ -1,5 +1,5 @@
 import type { MediaInfo } from '../media'
-import type { AdminDocument } from '../server'
+import type { AdminDocument, AdminMedia, MediaUses, VideoTicket } from '../server'
 
 export type Status = AdminDocument['status']
 
@@ -34,13 +34,24 @@ export function adminApi(base: string) {
 
   return {
     list: (type: string) => request<AdminDocument[]>('GET', path(type)),
-    get: (type: string, slug: string) => request<AdminDocument>('GET', path(type, slug)),
+    get: (type: string, slug: string, locale?: string) =>
+      request<AdminDocument>(
+        'GET',
+        `${path(type, slug)}${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`,
+      ),
     create: (type: string, input: { status: Status; data: Record<string, unknown> }) =>
       request<{ slug: string }>('POST', path(type), input),
     update: (
       type: string,
       slug: string,
-      input: { status: Status; data: Record<string, unknown> },
+      input: {
+        status: Status
+        data: Record<string, unknown>
+        /** A translated locale; its status follows the default locale's. */
+        locale?: string
+        /** Keys of machine translations to mark as reviewed. */
+        approve?: string[]
+      },
     ) => request<{ ok: true }>('PUT', path(type, slug), input),
     remove: (type: string, slug: string) => request<{ ok: true }>('DELETE', path(type, slug)),
     /** A master the browser made (WebP, or JPEG when it can't encode WebP). */
@@ -56,6 +67,23 @@ export function adminApi(base: string) {
         body: file,
       }),
     makeMaster: (id: string) => send<MediaInfo>('POST', `/media/raw/${encodeURIComponent(id)}`),
+    /** A presigned URL for one MP4 of exactly `size` bytes; `uploadVideo` PUTs it there. */
+    videoTicket: (input: { size: number; type: string }) =>
+      request<VideoTicket>('POST', '/media/video', input),
+    /** Adds the video's media row once its PUT is done. */
+    completeVideo: (id: string, input: { filename: string; width?: number; height?: number }) =>
+      request<MediaInfo>('POST', `/media/video/${encodeURIComponent(id)}`, input),
+    /** Myndasafn: every photo with the documents that use it. */
+    listMedia: () => request<AdminMedia[]>('GET', '/media'),
+    setAlt: (id: string, alt: string) =>
+      request<{ ok: true }>('PATCH', `/media/${encodeURIComponent(id)}`, { alt }),
+    mediaUses: (id: string) => request<MediaUses>('GET', `/media/${encodeURIComponent(id)}/uses`),
+    /** `removeFromGalleries` once the editor has confirmed it; refused while an image() uses it. */
+    removeMedia: (id: string, removeFromGalleries: boolean) =>
+      request<{ ok: true }>(
+        'DELETE',
+        `/media/${encodeURIComponent(id)}${removeFromGalleries ? '?galleries=remove' : ''}`,
+      ),
   }
 }
 

@@ -1,0 +1,2 @@
+# After a pull or merge, install when pnpm-lock.yaml changed (see post-checkout).
+git diff --quiet ORIG_HEAD HEAD -- pnpm-lock.yaml 2>/dev/null || pnpm install --frozen-lockfile

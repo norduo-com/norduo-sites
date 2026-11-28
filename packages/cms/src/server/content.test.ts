@@ -305,16 +305,13 @@ describe('slug fields', () => {
     expect(await slugOf(id, 'en')).toBe('grjotveggur')
   })
 
-  it('waits for the Icelandic title before making a slug for an item created in English', async () => {
+  it('refuses an item created in English: Icelandic comes first', async () => {
     const res = await call('POST', '/admin/content/projects', {
       status: 'draft',
       locale: 'en',
       data: { title: 'Paving' },
     })
-    const id = (await res.json<{ slug: string }>()).slug
-    expect(await slugOf(id, 'en')).toBeUndefined()
-    await save(id, { title: 'Hellulögn' })
-    expect(await slugOf(id, 'en')).toBe('hellulogn')
+    expect(res.status).toBe(409)
   })
 })
 
@@ -333,13 +330,25 @@ describe('pages', () => {
     expect(await publicNames()).toEqual([])
   })
 
-  it('are saved per locale', async () => {
+  it('are saved per locale; English texts not yet translated show the Icelandic', async () => {
     await call('PUT', '/admin/content/pages/equipment', { data: header })
-    const en = { title: 'Services' }
-    await call('PUT', '/admin/content/pages/equipment', { locale: 'en', data: en })
-    // Fields with no English yet show the Icelandic text.
-    expect(await getPage(db.d1, cms, 'equipment', { locale: 'en' })).toEqual({ ...header, ...en })
+    await call('PUT', '/admin/content/pages/equipment', {
+      locale: 'en',
+      data: { title: 'Services' },
+    })
+    expect(await getPage(db.d1, cms, 'equipment', { locale: 'en' })).toEqual({
+      ...header,
+      title: 'Services',
+    })
     expect(await getPage(db.d1, cms, 'equipment')).toEqual(header)
+  })
+
+  it('refuse an English save before the Icelandic one', async () => {
+    const res = await call('PUT', '/admin/content/pages/equipment', {
+      locale: 'en',
+      data: { title: 'Services' },
+    })
+    expect(res.status).toBe(409)
   })
 
   it('give nothing before their first save', async () => {

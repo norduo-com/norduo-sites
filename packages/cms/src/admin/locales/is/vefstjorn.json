@@ -17,7 +17,35 @@
     "saving": "Vistar…",
     "delete": "Eyða",
     "confirmDelete": "Já, eyða",
-    "cancel": "Hætta við"
+    "cancel": "Hætta við",
+    "remove": "Fjarlægja",
+    "close": "Loka"
+  },
+  "blocks": {
+    "label": "Efni síðunnar",
+    "empty": "Engir hlutar á síðunni enn.",
+    "position": "{{n}}. {{label}}",
+    "moveUp": "Færa upp: {{block}}",
+    "moveDown": "Færa niður: {{block}}",
+    "remove": "Fjarlægja: {{block}}",
+    "type": "Tegund hluta",
+    "add": "Bæta við hluta",
+    "notAllowed": "Þessi hluti er ekki leyfður á síðunni. Fjarlægðu hann áður en þú vistar."
+  },
+  "media": {
+    "upload": "Hlaða upp myndum",
+    "filter": "Sýna",
+    "all": "Allar myndir",
+    "unused": "Ónotaðar",
+    "noAlt": "Án lýsingar",
+    "search": "Leita",
+    "empty": "Engar myndir hér.",
+    "usedIn": "Notuð í: {{list}}",
+    "alt": "Lýsing (fyrir skjálesara og leitarvélar)",
+    "saveAlt": "Vista lýsingu",
+    "blocked": "Ekki er hægt að eyða myndinni meðan hún er notuð hér. Skiptu henni út þar fyrst:",
+    "confirmGalleries": "Myndin verður tekin úr myndaröðum á þessum stöðum. Viltu eyða henni?",
+    "confirmDelete": "Viltu eyða þessari mynd? Það er ekki hægt að afturkalla."
   },
   "list": {
     "loading": "Hleður…",
@@ -43,6 +71,24 @@
     "tooFew": "Veldu að minnsta kosti {{min}}.",
     "email": "Sláðu inn gilt netfang, t.d. nafn@fyrirtaeki.is.",
     "url": "Sláðu inn fulla slóð sem byrjar á https://."
+  },
+  "locales": {
+    "is": "Íslenska",
+    "en": "Enska"
+  },
+  "translation": {
+    "language": "Tungumál",
+    "auto": "Enski textinn er vélþýddur eftir hverja vistun á íslensku.",
+    "help": "Hér breytirðu bara textunum. Myndir og aðrar stillingar fylgja íslensku útgáfunni.",
+    "saveSourceFirst": "Vistaðu íslenska textann fyrst. Þá verður til ensk vélþýðing.",
+    "approve": "Samþykkja",
+    "approveField": "Samþykkja þýðingu á „{{field}}“",
+    "approved": "Þýðing samþykkt",
+    "state": {
+      "machine": "Óyfirfarið",
+      "pending": "Bíður þýðingar",
+      "failed": "Þýðing tókst ekki"
+    }
   },
   "screens": {
     "comingSoon": "Þessi skjár kemur síðar."
@@ -101,6 +147,42 @@
       "failed": "Ekki tókst að hlaða myndinni upp. Reyndu aftur."
     },
     "errorDetail": "Villukóði: {{detail}}"
+  },
+  "gallery": {
+    "addPhotos": "Bæta við myndum",
+    "addVideo": "Bæta við myndbandi",
+    "link": "Tengill á YouTube eða Vimeo",
+    "addLink": "Bæta við tengli",
+    "help": "Myndbönd mega vera MP4, allt að 200 MB. Settu lengri myndbönd á YouTube eða Vimeo og bættu við tengli á þau.",
+    "uploadingPhotos": "Hleður upp mynd {{n}} af {{count}}…",
+    "uploadingVideo": "Hleður upp myndbandi… {{percent}}%",
+    "makingPoster": "Býr til mynd úr myndbandinu…",
+    "kind": {
+      "image": "Mynd {{n}}",
+      "video": "Myndband {{n}}",
+      "embed": "Tengt myndband {{n}}"
+    },
+    "provider": {
+      "youtube": "YouTube",
+      "vimeo": "Vimeo"
+    },
+    "cover": "Forsíðumynd",
+    "coverNeedsPoster": "(veldu fyrst mynd fyrir myndbandið)",
+    "choosePoster": "Velja mynd fyrir myndband",
+    "replacePoster": "Skipta um mynd fyrir myndband",
+    "removePoster": "Fjarlægja mynd fyrir myndband",
+    "moveUp": "Færa upp",
+    "moveDown": "Færa niður",
+    "remove": "Fjarlægja",
+    "moveUpItem": "Færa atriði {{n}} upp",
+    "moveDownItem": "Færa atriði {{n}} niður",
+    "removeItem": "Fjarlægja atriði {{n}}",
+    "errors": {
+      "link": "Sláðu inn tengil á myndband á YouTube eða Vimeo.",
+      "videoType": "Myndbandið þarf að vera MP4.",
+      "videoTooBig": "Myndbandið er stærra en 200 MB. Settu það á YouTube eða Vimeo og bættu við tengli á það.",
+      "videoFailed": "Ekki tókst að hlaða myndbandinu upp. Reyndu aftur."
+    }
   },
   "seo": {
     "label": "Leitarvélar og deiling",

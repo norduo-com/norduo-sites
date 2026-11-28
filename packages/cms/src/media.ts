@@ -40,6 +40,9 @@ export const imageUrl = (id: string, width: ImageWidth) => `/img/${String(width)
 export const imageSrcSet = (id: string) =>
   IMAGE_WIDTHS.map((w) => `${imageUrl(id, w)} ${String(w)}w`).join(', ')
 
+/** An MP4 from a gallery, served as it is (with byte ranges) by the site's `/video` route. */
+export const videoUrl = (id: string) => `/video/${id}.mp4`
+
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
@@ -47,43 +50,121 @@ function idOf(value: unknown): string[] {
   return isRecord(value) && typeof value.mediaId === 'string' ? [value.mediaId] : []
 }
 
-function collect(field: Field, value: unknown, out: Set<string>) {
-  const nested = field as Field & { fields?: Fields; blocks?: Record<string, BlockConfig> }
+/** How a document uses a photo: an `image()` field, or an item in a `gallery()`. */
+export type MediaUse = 'image' | 'gallery'
+
+type Nested = Field & { fields?: Fields; blocks?: Record<string, BlockConfig> }
+
+const blockDef = (field: Nested, item: Record<string, unknown>) =>
+  typeof item.type === 'string' && field.blocks && Object.hasOwn(field.blocks, item.type)
+    ? field.blocks[item.type]
+    : undefined
+
+function collect(field: Field, value: unknown, visit: (id: string, use: MediaUse) => void) {
+  const nested = field as Nested
   const list = Array.isArray(value) ? (value as unknown[]) : []
   switch (field.kind) {
     case 'image':
-      for (const id of idOf(value)) out.add(id)
+      for (const id of idOf(value)) visit(id, 'image')
       break
     case 'gallery':
-      for (const item of list) for (const id of idOf(item)) out.add(id)
+      // A video's own id and its poster's; a YouTube/Vimeo link has neither.
+      for (const item of list) {
+        for (const id of idOf(item)) visit(id, 'gallery')
+        if (isRecord(item)) for (const id of idOf(item.poster)) visit(id, 'gallery')
+      }
       break
     case 'group':
     case 'seo':
-      if (nested.fields && isRecord(value)) walk(nested.fields, value, out)
+      if (nested.fields && isRecord(value)) walk(nested.fields, value, visit)
       break
     case 'repeater':
-      for (const item of list) if (nested.fields && isRecord(item)) walk(nested.fields, item, out)
+      for (const item of list) if (nested.fields && isRecord(item)) walk(nested.fields, item, visit)
       break
     case 'blocks':
       for (const item of list) {
-        if (!isRecord(item) || typeof item.type !== 'string' || !isRecord(item.data)) continue
-        const def =
-          nested.blocks && Object.hasOwn(nested.blocks, item.type)
-            ? nested.blocks[item.type]
-            : undefined
-        if (def) walk(def.fields, item.data, out)
+        if (!isRecord(item) || !isRecord(item.data)) continue
+        const def = blockDef(nested, item)
+        if (def) walk(def.fields, item.data, visit)
       }
       break
   }
 }
 
-function walk(fields: Fields, data: Record<string, unknown>, out: Set<string>) {
-  for (const [name, field] of Object.entries(fields)) collect(field, data[name], out)
+function walk(
+  fields: Fields,
+  data: Record<string, unknown>,
+  visit: (id: string, use: MediaUse) => void,
+) {
+  for (const [name, field] of Object.entries(fields)) collect(field, data[name], visit)
 }
 
 /** Ids of every photo a document uses, found through its fields, each once. */
 export function mediaIdsOf(fields: Fields, data: Record<string, unknown>): string[] {
-  const out = new Set<string>()
-  walk(fields, data, out)
-  return [...out]
+  return [...mediaUsesOf(fields, data).keys()]
+}
+
+/**
+ * Every photo a document uses and how. A photo in an `image()` field anywhere counts as
+ * `image` even if a gallery has it too, since that use blocks deleting it.
+ */
+export function mediaUsesOf(fields: Fields, data: Record<string, unknown>): Map<string, MediaUse> {
+  const out = new Map<string, MediaUse>()
+  walk(fields, data, (id, use) => {
+    if (out.get(id) !== 'image') out.set(id, use)
+  })
+  return out
+}
+
+function strip(field: Field, value: unknown, id: string): unknown {
+  const nested = field as Nested
+  if (!Array.isArray(value) && !isRecord(value)) return value
+  switch (field.kind) {
+    case 'gallery':
+      // The item goes; a video whose poster goes keeps playing, but can no longer be the cover.
+      return Array.isArray(value)
+        ? value
+            .filter((item) => !idOf(item).includes(id))
+            .map((item: unknown) => {
+              if (!isRecord(item) || !idOf(item.poster).includes(id)) return item
+              const { poster: _poster, cover: _cover, ...rest } = item
+              return rest
+            })
+        : value
+    case 'group':
+    case 'seo':
+      return nested.fields && isRecord(value) ? stripAll(nested.fields, value, id) : value
+    case 'repeater':
+      return Array.isArray(value)
+        ? value.map((item: unknown) =>
+            nested.fields && isRecord(item) ? stripAll(nested.fields, item, id) : item,
+          )
+        : value
+    case 'blocks':
+      return Array.isArray(value)
+        ? value.map((item: unknown) => {
+            if (!isRecord(item) || !isRecord(item.data)) return item
+            const def = blockDef(nested, item)
+            return def ? { ...item, data: stripAll(def.fields, item.data, id) } : item
+          })
+        : value
+    default:
+      return value
+  }
+}
+
+function stripAll(fields: Fields, data: Record<string, unknown>, id: string) {
+  const out = { ...data }
+  for (const [name, field] of Object.entries(fields))
+    if (Object.hasOwn(out, name)) out[name] = strip(field, out[name], id)
+  return out
+}
+
+/** The document with photo `id` taken out of every gallery; `image()` fields are left as they are. */
+export function removeFromGalleries(
+  fields: Fields,
+  data: Record<string, unknown>,
+  id: string,
+): Record<string, unknown> {
+  return stripAll(fields, data, id)
 }

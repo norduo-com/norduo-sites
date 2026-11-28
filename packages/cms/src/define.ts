@@ -76,6 +76,16 @@ export interface CmsConfig {
   blocks?: Record<string, BlockConfig>
   /** The site's fixed pages, listed in Vefstjórn under Síður og textar. */
   pages?: Record<string, PageConfig>
+  /**
+   * What the translation model is told about the site. Translatable fields of the default
+   * locale are machine translated into the other locales after each save.
+   */
+  translation?: {
+    /** e.g. "Berghald, an Icelandic landscaping company". */
+    about?: string
+    /** Source term → the term to use in the translation. */
+    glossary?: Record<string, string>
+  }
 }
 
 /** An `seo()` field's fallbacks must name fields of the same owner. */
