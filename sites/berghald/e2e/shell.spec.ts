@@ -3,8 +3,8 @@ import { expect, test } from '@playwright/test'
 test('Icelandic pages sit at the root and English ones under /en', async ({ page }) => {
   await page.goto('/thjonusta')
   await expect(page.locator('html')).toHaveAttribute('lang', 'is')
-  const nav = page.getByRole('navigation', { name: 'Aðalvalmynd' })
-  await expect(nav.getByRole('link', { name: 'In English' })).toHaveAttribute(
+  const nav = page.getByRole('navigation', { name: 'Aðalvalmynd', exact: true })
+  await expect(nav.getByRole('link', { name: 'In English', exact: true })).toHaveAttribute(
     'href',
     '/en/services',
   )
@@ -12,15 +12,17 @@ test('Icelandic pages sit at the root and English ones under /en', async ({ page
   await page.goto('/en/services')
   await expect(page.locator('html')).toHaveAttribute('lang', 'en')
   await expect(
-    page.getByRole('navigation', { name: 'Main menu' }).getByRole('link', { name: 'Á íslensku' }),
+    page
+      .getByRole('navigation', { name: 'Main menu', exact: true })
+      .getByRole('link', { name: 'Á íslensku', exact: true }),
   ).toHaveAttribute('href', '/thjonusta')
 })
 
 test('the language switch is a plain link that keeps the query', async ({ page }) => {
   await page.goto('/verkefni?forskodun=abc')
-  await page.getByRole('link', { name: 'In English' }).click()
+  await page.getByRole('link', { name: 'In English', exact: true }).click()
   await expect(page).toHaveURL(/\/en\/projects\?forskodun=abc$/)
-  await page.getByRole('link', { name: 'Á íslensku' }).click()
+  await page.getByRole('link', { name: 'Á íslensku', exact: true }).click()
   await expect(page).toHaveURL(/\/verkefni\?forskodun=abc$/)
 })
 
@@ -65,10 +67,9 @@ test('English pages show the English text, or the Icelandic until it is translat
   // The fake translator (e2e) writes "[en] <Icelandic>"; before it runs, the Icelandic shows.
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Fjölskyldufyrirtæki')
   // Menu labels are each page's title.
-  await expect(page.getByRole('link', { name: 'About Berghald' }).first()).toHaveAttribute(
-    'href',
-    '/en/about',
-  )
+  await expect(
+    page.getByRole('link', { name: 'About Berghald', exact: true }).first(),
+  ).toHaveAttribute('href', '/en/about')
 })
 
 test.describe('without JavaScript', () => {
@@ -77,8 +78,8 @@ test.describe('without JavaScript', () => {
   test('the menu folds into a button on phones and still opens', async ({ page }, testInfo) => {
     test.skip(testInfo.project.name !== 'mobile', 'phone layout')
     await page.goto('/')
-    const nav = page.getByRole('navigation', { name: 'Aðalvalmynd' })
-    const projects = nav.getByRole('link', { name: 'Verkefni' })
+    const nav = page.getByRole('navigation', { name: 'Aðalvalmynd', exact: true })
+    const projects = nav.getByRole('link', { name: 'Verkefni', exact: true })
     await expect(projects).toBeHidden()
     await nav.locator('summary').click()
     await expect(projects).toBeVisible()

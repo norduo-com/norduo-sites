@@ -57,9 +57,9 @@ export function config({ tsconfigRootDir, ignores = [], spacingTokens = false })
     spacingTokens ? { plugins: { norduo }, rules: { 'norduo/spacing-tokens': 'error' } } : {},
     {
       // Playwright matches a text string as any substring, ignoring case: 'Mynd 1' also finds
-      // "Hleður upp mynd 1 af 1…". getByLabel and getByRole's `name` match the same way but
-      // aren't checked: a required field's label is "Heiti *", so `exact` breaks them, and
-      // CODING_STANDARDS.md covers form fields.
+      // "Hleður upp mynd 1 af 1…", and a tab named 'Enska' also finds "Íslenska". getByLabel
+      // isn't checked: a required field's label is "Heiti *", so `exact` breaks it, and
+      // CODING_STANDARDS.md says to find fields by role instead.
       files: ['**/e2e/**/*.ts'],
       rules: {
         'no-restricted-syntax': [
@@ -68,6 +68,11 @@ export function config({ tsconfigRootDir, ignores = [], spacingTokens = false })
             selector:
               "CallExpression[callee.property.name='getByText']:not([arguments.0.regex]):not([arguments.0.callee.name='RegExp']):not(:has(Property[key.name='exact'][value.value=true]))",
             message: 'Pass getByText { exact: true }, or a RegExp to match part of the text.',
+          },
+          {
+            selector:
+              "CallExpression[callee.property.name='getByRole'] > ObjectExpression:has(> Property[key.name='name']:matches([value.type='TemplateLiteral'], [value.type='Literal']:not([value.regex]))):not(:has(> Property[key.name='exact'][value.value=true]))",
+            message: 'Pass getByRole { exact: true } with a string name, or a RegExp.',
           },
           {
             selector:

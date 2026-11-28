@@ -59,18 +59,18 @@ test('a large JPEG uploads, shows at all four widths, and its GPS data is gone',
   const jpeg = await largeJpegWithGps(page)
   expect(jpeg.includes('Exif')).toBe(true)
 
-  await page.getByRole('button', { name: 'Nýtt' }).click()
+  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(name)
   await page.getByLabel('Mynd').setInputFiles({
     name: 'IMG_0001.JPG',
     mimeType: 'image/jpeg',
     buffer: jpeg,
   })
-  const preview = page.getByRole('img', { name: 'Valin mynd' })
+  const preview = page.getByRole('img', { name: 'Valin mynd', exact: true })
   await expect(preview).toBeVisible()
   await expect.poll(() => preview.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBe(480)
-  await page.getByRole('radio', { name: 'Birt' }).check()
-  await page.getByRole('button', { name: 'Vista' }).click()
+  await page.getByRole('radio', { name: 'Birt', exact: true }).check()
+  await page.getByRole('button', { name: 'Vista', exact: true }).click()
   await expect(page.getByRole('status')).toHaveText('Vistað')
 
   await page.goto('/')
@@ -99,7 +99,7 @@ test('a large JPEG uploads, shows at all four widths, and its GPS data is gone',
 
 test('a photo nobody can read gets an Icelandic message', async ({ page }) => {
   await page.goto('/vefstjorn/equipment')
-  await page.getByRole('button', { name: 'Nýtt' }).click()
+  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   // Chromium can't decode HEIC, so this goes the raw path, and the Worker can't read it either.
   await page.getByLabel('Mynd').setInputFiles({
     name: 'IMG_0002.HEIC',

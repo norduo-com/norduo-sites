@@ -46,14 +46,14 @@ test('a photo in an image() field cannot be deleted until it is replaced', async
   await page.reload()
   const photo = card(page, filename)
   await expect(photo).toContainText('Notuð í: Tæki')
-  await photo.getByRole('button', { name: 'Eyða' }).click()
+  await photo.getByRole('button', { name: 'Eyða', exact: true }).click()
   const alert = photo.getByRole('alert')
   await expect(alert).toContainText('Ekki er hægt að eyða myndinni')
-  await expect(alert.getByRole('link', { name: `Tæki: ${name}` })).toHaveAttribute(
+  await expect(alert.getByRole('link', { name: `Tæki: ${name}`, exact: true })).toHaveAttribute(
     'href',
     '/vefstjorn/equipment',
   )
-  await expect(photo.getByRole('button', { name: 'Já, eyða' })).toHaveCount(0)
+  await expect(photo.getByRole('button', { name: 'Já, eyða', exact: true })).toHaveCount(0)
 
   // The API refuses too, even when asked to clear galleries.
   const res = await page.request.delete(`/api/cms/admin/media/${id}?galleries=remove`)
@@ -79,11 +79,11 @@ test('a photo in a gallery is removed from it after confirming', async ({ page }
   await page.reload()
   const photo = card(page, filename)
   await expect(photo).toContainText('Notuð í: Verkefni')
-  await photo.getByRole('button', { name: 'Eyða' }).click()
+  await photo.getByRole('button', { name: 'Eyða', exact: true }).click()
   const alert = photo.getByRole('alert')
   await expect(alert).toContainText('Myndin verður tekin úr myndaröðum')
-  await expect(alert.getByRole('link', { name: `Verkefni: ${title}` })).toBeVisible()
-  await alert.getByRole('button', { name: 'Já, eyða' }).click()
+  await expect(alert.getByRole('link', { name: `Verkefni: ${title}`, exact: true })).toBeVisible()
+  await alert.getByRole('button', { name: 'Já, eyða', exact: true }).click()
   await expect(card(page, filename)).toHaveCount(0)
 
   const project = await page.request.get(`/api/cms/admin/content/projects/${slug}`)
@@ -105,7 +105,7 @@ test('alt text is saved once and the Án lýsingar filter follows it', async ({ 
   await expect(photo).toBeVisible()
   await expect(photo).toContainText('Ónotaðar')
   await photo.getByLabel('Lýsing').fill('Hlaðinn steinveggur')
-  await photo.getByRole('button', { name: 'Vista lýsingu' }).click()
+  await photo.getByRole('button', { name: 'Vista lýsingu', exact: true }).click()
   // It has a description now, so it leaves this filter.
   await expect(card(page, filename)).toHaveCount(0)
 

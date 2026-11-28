@@ -68,7 +68,7 @@ Without these, adding a video fails with `501 noVideoUpload` (logged as `media u
 
 ## Behind Access
 
-The PR previews (the whole Worker) and the live site's `/vefstjorn` and `/api/cms/admin` are behind Cloudflare Access. An agent gets through with a service token kept in `.env.access` at the repo root (git-ignored by `.env.*`). Without the file, ask the user to check the page.
+The PR previews (the whole Worker) and the live site's `/vefstjorn` and `/api/cms/admin` are behind Cloudflare Access. An agent gets through with a service token kept in `.env.access` at the root of the main checkout (git-ignored by `.env.*`); the session-start hook links it into each worktree. Check a PR preview yourself with it before handing the check to the user. Without the file, ask the user to check the page.
 
 ```sh
 set -a; . ./.env.access; set +a
