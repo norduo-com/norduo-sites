@@ -60,6 +60,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 
 - The public site is **rendered by the Worker on request** (React Router framework mode, SSR) and **cached at the edge**.
 - The cache key includes a content version in D1 (`site_meta.content_version`), which goes up on every save or delete in Vefstjórn, drafts included. Any change makes pages re-render on their next visit, in every data centre. No rebuild or purge list is needed. The key also includes the deployed Worker version (`CF_VERSION_METADATA`), since a deploy replaces the hashed `/assets` files a cached page links to.
+- The key keeps only the query params React Router reads (`_routes`, `index`, `paths`, `version`), sorted; others (`utm_*`, `fbclid`, a random `?x=`) are dropped and the page is rendered from that clean URL, so they can't force uncached renders. Every request, hits included, reads `content_version` from D1 (one small read, well inside the free tier's daily reads).
 - Watch out: the Workers free plan allows 10 ms CPU per request. Because of the cache, most visits never render, but if uncached renders go over that limit, the fix is Workers Paid at $5/month (30 s CPU).
 - The Vefstjórn UI is served from the same Worker at `/vefstjorn`.
 
