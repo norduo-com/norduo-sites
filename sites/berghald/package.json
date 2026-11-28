@@ -38,6 +38,7 @@
     "wrangler": "^4.163.0"
   },
   "dependencies": {
+    "@fontsource/outfit": "5.2.8",
     "@norduo/cms": "workspace:*",
     "@norduo/ui": "workspace:*",
     "@sentry/cloudflare": "11.16.0",

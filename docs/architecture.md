@@ -37,7 +37,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
    - collections (e.g. Verkefni, Þjónusta)
    - singletons (e.g. settings); `showUnder: 'pages'` lists one under Síður og textar instead of the menu (the footer)
-   - pages: a fixed set, each with its `route`, its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
+   - pages: a fixed set, each with its `route` and its path in every other locale (`localeRoutes: { en: '/services' }`), its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
    - the `blocks` library (e.g. intro, services carousel, quote form)
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
@@ -72,7 +72,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 | API             | Same Worker, running **Hono** at `/api/cms`                                                                                                                                                                                                                                                            |
 | Content         | **D1** (SQLite), accessed with **Drizzle ORM** + migrations                                                                                                                                                                                                                                            |
 | Photos          | Master images (WebP, ≤ 2560 px, no metadata) in **R2**; originals are not kept (see `packages/cms/docs/adr/0001-master-image-only.md`). **Image Transformations** produce sizes and formats on request (WebP/AVIF), with a small fixed set of widths to stay under 5,000 unique transformations/month. |
-| Translation     | **Workers AI** translation model, called from the Hono API                                                                                                                                                                                                                                             |
+| Translation     | **Workers AI** (Gemma 4 26B), run after each save; see §6                                                                                                                                                                                                                                              |
 | Admin login     | **Cloudflare Access** in front of `/vefstjorn` and `/api/cms/admin`                                                                                                                                                                                                                                    |
 | Quote form spam | **Cloudflare Turnstile**                                                                                                                                                                                                                                                                               |
 | Quote form      | Saved to D1 (`enquiries`) **and** emailed to the client via Worker `send_email`. Resend free tier only if customer confirmation emails are needed.                                                                                                                                                     |
@@ -101,8 +101,8 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 ## 6. Languages
 
-- **react-i18next**: Icelandic first, English via the translate button. Content translations are stored in D1, per locale.
-- **Editing other locales:** Vefstjórn has no language switcher yet; until #31, a non-default locale is read and saved only through the admin API (`?locale=en` on reads, `locale` in the PUT body), and the site has no `/en` routes until #32.
+- **react-i18next**: Icelandic first, English machine translated on save. Content translations are stored in D1, per locale.
+- **Editing other locales:** the Íslenska / Enska switch in each Vefstjórn editor (§6); the site has no `/en` routes until #32.
 - **Namespaces:**
   - `vefstjorn`: Vefstjórn's own generic strings, in `packages/cms/src/admin/locales/<lng>/vefstjorn.json`. Sites can't override them in v1.
   - `cms`: the site's content-model labels (collections, fields, blocks, choices, help), in `sites/<name>/locales/<lng>/cms.json`. `cms.config.ts` holds no labels; keys follow config paths (`collections.equipment.label`, `collections.equipment.fields.name.label` → site-wide `fields.name.label`).
@@ -110,10 +110,17 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
   - The admin loads `vefstjorn` + `cms`, Icelandic only in v1.
 - JSON is bundled statically and i18next starts synchronously, also on SSR. A missing key renders as the raw key and never crashes; a unit test fails `pnpm check` on a missing `is` label and on `site` key sets that differ between `is` and `en`.
 - **Files vs D1:** text an editor would plausibly reword lives in D1 (page headers, block text, nav labels, settings). Microcopy tied to code lives in files (form labels and errors, buttons, aria labels, the language switch, the cookie banner, season and month names).
-- **English content = machine draft, then edited:**
-  - Each translatable field in Vefstjórn has a "Þýða á ensku" (translate to English) button. It calls Workers AI through the Hono API and fills in the English field.
-  - A machine-translated field is flagged "Óyfirfarið" (not reviewed, `needs_review` in D1) until someone edits or approves it.
-  - English fields that are still empty fall back to Icelandic on the public site.
+- **English content = machine draft on save, then edited** (`packages/cms/src/translate.ts`, `src/server/translate.ts`; the model test is on issue #31):
+  - Saving the Icelandic version writes it to D1 first. Every other locale's row is then rebuilt from it: the same structure and untranslated values (photos, phone, links), with each translatable text (`i18n: true`, also inside groups, repeaters, blocks and `seo()`) replaced by its translation. A text with no translation yet keeps the Icelandic, so the public English page falls back field by field.
+  - The row's `translations` column holds, per text (keyed by its path, e.g. `seo.title`, `blocks.0.data.heading`), a hash of its Icelandic source and its state: `machine` (shown as "Óyfirfarið"), `reviewed`, `pending` or `failed`. Only texts whose source changed are translated again; a text that only moved (a reordered block) keeps its translation. `needs_review` is set while any text is `machine`.
+  - After the response (`waitUntil`), the pending texts of a save go to Workers AI in **one** call as a JSON array: `@cf/google/gemma-4-26b-a4b-it` with thinking off, about 10 neurons for 12 strings. `@cf/qwen/qwen3.8-27b` is the fallback for segments Gemma gets wrong or when it is busy (`3040`). The site's `translation` config (a line about the site and a glossary) goes into the system prompt.
+  - Rich text is sent one block or list item per segment, with formatting as numbered placeholders (`[1]…[/1]`), so links and marks never go to the model. A reply whose segment count or placeholders don't match is not used; if the fallback fails as well, the text is marked `failed` and keeps the Icelandic.
+  - When the daily allowance runs out (`3036`), texts stay `pending`. The nightly cron (03:00 UTC, after the 00:00 reset) retries them (`retryTranslations`).
+  - In Vefstjórn, each editor has an Íslenska / Enska switch. The English tab shows only the translatable texts, each flagged "Óyfirfarið" until someone edits it or clicks Samþykkja. Clearing an English text has it translated again. English can't be saved before the Icelandic, and Drög/Birt follow the Icelandic version.
+  - Local dev and e2e have no AI binding (`remoteBindings: false`); `TRANSLATOR=fake` in `.dev.vars` writes `[en] <Icelandic>` instead. The real model runs on the PR preview and the live site.
+  - The site loaders (`listPublished`, `getPage`, `getSingleton`, `pageHeaders`) also lay each locale's row over the Icelandic one field by field (`withFallback`), so an English text left empty, or an item with no English row, shows the Icelandic.
+- **URLs:** Icelandic at the root (`/verkefni`), English under `/en` (`/en/projects`). Each page's path per locale is fixed in `cms.config.ts`; document slugs are shared, so the language switch (`switchLocalePath`) swaps the prefix and page segment, keeps the slug and the query, and is a plain link. `<html lang>` comes from the path. No redirect by `Accept-Language` or cookie.
+- **SEO:** each page has a self canonical and `hreflang` `is`, `en` and `x-default` (Icelandic). `/sitemap.xml` lists both with `xhtml:link` alternates. Every host except `berghald.is` sends `X-Robots-Tag: noindex` (the pre-launch host, PR previews, localhost).
 
 ## 7. Frontend stack
 
@@ -183,7 +190,7 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - **In:**
   - Yfirlit, Verkefni, Myndasafn, Þjónusta, Teymi, Tæki, Síður og textar, Stillingar
   - Drafts
-  - "Þýða á ensku" machine-translation drafts
+  - English machine-translation drafts on save, flagged "Óyfirfarið"
   - Enquiries saved to D1, with no inbox screen yet
 - **Out:** GA on Yfirlit, SEO overview/score, tutorial videos, users screen/invites, Google/Apple login, admin language switch, reviews editing, enquiries inbox.
 

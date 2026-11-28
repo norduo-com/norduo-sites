@@ -249,17 +249,21 @@ describe('media_refs', () => {
     const b = await uploaded(await photo('webp', 800, 600), 'image/webp')
     const created = await save('POST', '', { name: 'Krani', photo: { mediaId: a.id } })
     const { slug } = await created.json<{ slug: string }>()
-    expect(await refs()).toEqual([{ media_id: a.id, doc_slug: slug, locale: 'is' }])
-
-    await save('PUT', `/${slug}`, { name: 'Crane', photo: { mediaId: a.id } }, 'en')
-    await save('PUT', `/${slug}`, { name: 'Krani', photo: { mediaId: b.id } })
+    // Photos aren't translated: the English row follows the Icelandic one.
     expect(await refs()).toEqual([
       { media_id: a.id, doc_slug: slug, locale: 'en' },
+      { media_id: a.id, doc_slug: slug, locale: 'is' },
+    ])
+
+    await save('PUT', `/${slug}`, { name: 'Krani', photo: { mediaId: b.id } })
+    await save('PUT', `/${slug}`, { name: 'Crane', photo: { mediaId: a.id } }, 'en')
+    expect(await refs()).toEqual([
+      { media_id: b.id, doc_slug: slug, locale: 'en' },
       { media_id: b.id, doc_slug: slug, locale: 'is' },
     ])
 
     await save('PUT', `/${slug}`, { name: 'Krani' })
-    expect(await refs()).toEqual([{ media_id: a.id, doc_slug: slug, locale: 'en' }])
+    expect(await refs()).toEqual([])
 
     await api.request(`/admin/content/equipment/${slug}`, { method: 'DELETE' }, env())
     expect(await refs()).toEqual([])

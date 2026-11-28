@@ -1,3 +1,5 @@
 User-agent: *
 Disallow: /vefstjorn
 Disallow: /api/
+
+Sitemap: https://berghald.is/sitemap.xml

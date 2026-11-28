@@ -34,13 +34,24 @@ export function adminApi(base: string) {
 
   return {
     list: (type: string) => request<AdminDocument[]>('GET', path(type)),
-    get: (type: string, slug: string) => request<AdminDocument>('GET', path(type, slug)),
+    get: (type: string, slug: string, locale?: string) =>
+      request<AdminDocument>(
+        'GET',
+        `${path(type, slug)}${locale ? `?locale=${encodeURIComponent(locale)}` : ''}`,
+      ),
     create: (type: string, input: { status: Status; data: Record<string, unknown> }) =>
       request<{ slug: string }>('POST', path(type), input),
     update: (
       type: string,
       slug: string,
-      input: { status: Status; data: Record<string, unknown> },
+      input: {
+        status: Status
+        data: Record<string, unknown>
+        /** A translated locale; its status follows the default locale's. */
+        locale?: string
+        /** Keys of machine translations to mark as reviewed. */
+        approve?: string[]
+      },
     ) => request<{ ok: true }>('PUT', path(type, slug), input),
     remove: (type: string, slug: string) => request<{ ok: true }>('DELETE', path(type, slug)),
     /** A master the browser made (WebP, or JPEG when it can't encode WebP). */

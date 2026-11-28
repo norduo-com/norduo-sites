@@ -145,10 +145,10 @@ describe('DELETE /admin/media/:id', () => {
         { kind: 'image', mediaId: b.id },
       ],
     })
+    // The English row follows the Icelandic photos.
     await call('PUT', `/admin/content/projects/${slug}`, {
       locale: 'en',
-      status: 'published',
-      data: { title: 'Garden', photos: [{ kind: 'image', mediaId: a.id }] },
+      data: { title: 'Garden', photos: [] },
     })
 
     const uses = await (await call('GET', `/admin/media/${a.id}/uses`)).json<MediaUses>()
@@ -171,7 +171,7 @@ describe('DELETE /admin/media/:id', () => {
         }>()
       ).data.photos
     expect(await photosOf('is')).toEqual([{ kind: 'image', mediaId: b.id }])
-    expect(await photosOf('en')).toEqual([])
+    expect(await photosOf('en')).toEqual([{ kind: 'image', mediaId: b.id }])
     expect((await list()).map((i) => [i.id, i.uses.length])).toEqual([[b.id, 1]])
   })
 

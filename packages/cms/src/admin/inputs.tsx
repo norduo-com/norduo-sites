@@ -74,11 +74,14 @@ export interface FieldInputProps {
   doc?: Record<string, unknown>
   /** The document's path on the site, for the Google preview. */
   previewPath?: string
+  /** Editing a translation: only translatable parts are shown (no share image). */
+  translating?: boolean
 }
 
 /** One field's input with its label, help text and error, chosen by the field's kind. */
 export function FieldInput(props: FieldInputProps) {
   const { owner, name, field, path, idPrefix, value, onChange, errors, doc, previewPath } = props
+  const { translating } = props
   const { t } = useTranslation(['vefstjorn', 'cms'])
   const id = `${idPrefix}-${path}`
   const label = t(fieldLabelKeys(owner, name), { ns: 'cms' })
@@ -144,6 +147,7 @@ export function FieldInput(props: FieldInputProps) {
         value={value}
         doc={doc ?? {}}
         previewPath={previewPath}
+        translating={translating}
         errors={errors}
         onChange={onChange}
       />

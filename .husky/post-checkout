@@ -1,0 +1,4 @@
+# After a branch switch, install when pnpm-lock.yaml changed, so a dependency added on the
+# other branch doesn't show up as a confusing typecheck error. $3 = 1 means a branch checkout.
+[ "$3" = 1 ] || exit 0
+git diff --quiet "$1" "$2" -- pnpm-lock.yaml 2>/dev/null || pnpm install --frozen-lockfile

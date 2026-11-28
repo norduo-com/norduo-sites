@@ -7,8 +7,9 @@ import { collectionLabelKey, pageLabelKey, singletonLabelKey } from '../labels'
 import { type AdminApi, adminApi, ApiError } from './api'
 import { CollectionScreen } from './CollectionScreen'
 import { AdminContext } from './context'
-import { Editor, type EditorDoc } from './Editor'
+import type { EditorDoc } from './Editor'
 import { MediaScreen } from './MediaScreen'
+import { LocalizedEditor } from './TranslationEditor'
 
 /**
  * Admin shell. Screens are generated from the site's config: one list + editor per
@@ -251,7 +252,7 @@ function DocumentScreen({
       {!doc && !loadError && <p>{t('list.loading')}</p>}
       {doc && (
         <div className="bg-white rounded-card p-tp">
-          <Editor
+          <LocalizedEditor
             api={api}
             type={type}
             owner={owner}

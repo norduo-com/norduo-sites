@@ -4,15 +4,45 @@ import { type Context, Hono } from 'hono'
 import { z } from 'zod'
 
 import { documents, enquiries, media, mediaRefs, siteMeta } from '../db/schema'
-import { type CmsConfig, type DocOf, pageFields, type PageOf, PAGES_SCREEN } from '../define'
+import {
+  type CmsConfig,
+  type DocOf,
+  pageFields,
+  type PageOf,
+  PAGES_SCREEN,
+  type SingletonOf,
+} from '../define'
 import { type Fields, schemaOf } from '../fields'
+import { withFallback } from '../locales'
 import { mediaIdsOf, type MediaUse, mediaUsesOf, removeFromGalleries } from '../media'
 import { slugify, uniqueSlug } from '../slug'
+import {
+  editLocale,
+  type LocaleRow,
+  needsReview,
+  planLocale,
+  type Translations,
+} from '../translate'
 import { verifyAccessJwt } from './access'
 import { masterFromRaw, type MediaFailure, putRaw, storeBrowserMaster } from './media'
+import {
+  bumpContentVersion,
+  fakeTranslator,
+  retryPendingTranslations,
+  translateDocument,
+  type Translator,
+  workersAiTranslator,
+} from './translate'
 import { completeVideo, presignVideo, putLocalVideo } from './video'
 
 export { createImageRoute, hasMetadata, mediaByIds, negotiateFormat, stripMetadata } from './media'
+export {
+  fakeTranslator,
+  TRANSLATION_MODELS,
+  TranslationError,
+  type Translator,
+  workersAiTranslator,
+} from './translate'
 export { createVideoRoute, type VideoTicket } from './video'
 
 export interface CmsBindings {
@@ -26,6 +56,10 @@ export interface CmsBindings {
   ACCESS_TEAM_DOMAIN?: string
   /** AUD tag of the site's Access application. */
   ACCESS_AUD?: string
+  /** Workers AI: machine translation of translatable fields after a save. */
+  AI?: Ai
+  /** "fake" translates with `fakeTranslator` (local development and e2e, which have no AI). */
+  TRANSLATOR?: string
   /** Name of the bucket behind `MEDIA`: videos are PUT to it through R2's S3 API. */
   R2_BUCKET?: string
   /** Secrets for presigned video uploads: the account and a token scoped to the bucket. */
@@ -37,6 +71,15 @@ export interface CmsBindings {
 export interface CmsHooks {
   /** Called after a quote enquiry is saved, e.g. to email it. */
   onEnquiry?: (enquiry: EnquiryInput, env: CmsBindings) => Promise<void> | void
+  /** Replaces the translator picked from the bindings (tests). */
+  translator?: Translator
+}
+
+/** The translator for this request: the hook's, the fake one, Workers AI, or none. */
+function translatorFor(config: CmsConfig, env: CmsBindings, hooks: CmsHooks): Translator | null {
+  if (hooks.translator) return hooks.translator
+  if (env.TRANSLATOR === 'fake') return fakeTranslator
+  return env.AI ? workersAiTranslator(env.AI, config.translation) : null
 }
 
 export const enquiryInput = z.object({
@@ -52,7 +95,8 @@ const saveInput = z.object({
   locale: z.string().min(2).max(10).optional(),
   status: z.enum(['draft', 'published']).optional(),
   data: z.record(z.string(), z.unknown()),
-  needsReview: z.boolean().optional(),
+  /** Translated locales only: keys of machine translations an editor approved. */
+  approve: z.array(z.string().max(200)).max(500).optional(),
 })
 
 export interface AdminDocument {
@@ -60,6 +104,8 @@ export interface AdminDocument {
   locale: string
   status: 'draft' | 'published'
   data: Record<string, unknown>
+  /** Translated locales: the state of each translatable text, keyed by its path. */
+  translations: Translations | null
   updatedAt: number
 }
 
@@ -104,17 +150,62 @@ export async function contentVersion(db: D1Database): Promise<number> {
   return row?.value ?? 0
 }
 
-function bumpContentVersion(db: Db) {
-  return db
-    .insert(siteMeta)
-    .values({ key: CONTENT_VERSION, value: 1 })
-    .onConflictDoUpdate({ target: siteMeta.key, set: { value: sql`${siteMeta.value} + 1` } })
+/**
+ * Published documents of one type for a site loader, in order. In a locale other than the
+ * default, each one is its default-locale row with the locale's own text laid over it field by
+ * field (`withFallback`), so an item with no translation yet still shows. `fields` limits what
+ * is read; every loaded field is serialized into the hydration payload, so selecting less
+ * saves CPU on Workers Free (see issue #8). Missing fields are left out.
+ */
+async function readPublished(
+  db: D1Database,
+  query: {
+    type: string
+    slug?: string
+    fields?: readonly string[]
+    locale: string
+    defaultLocale: string
+  },
+): Promise<{ slug: string; data: Record<string, unknown> }[]> {
+  const fields = query.fields?.filter(isIdentifier)
+  const projection = (alias: string) =>
+    fields === undefined
+      ? `${alias}.data`
+      : fields.length
+        ? `json_object(${fields.map((f) => `'${f}', json_extract(${alias}.data, '$.${f}')`).join(', ')})`
+        : "'{}'"
+  const translated = query.locale !== query.defaultLocale
+  const { results } = await db
+    .prepare(
+      `select d.slug, ${projection('d')} as data${translated ? `, ${projection('l')} as own` : ''}
+       from documents d
+       ${translated ? "left join documents l on l.type = d.type and l.slug = d.slug and l.locale = ?1 and l.status = 'published'" : ''}
+       where d.type = ?2 and d.locale = ?3 and d.status = 'published'
+       ${query.slug === undefined ? '' : 'and d.slug = ?4'}
+       order by d.sort, d.created_at`,
+    )
+    .bind(
+      query.locale,
+      query.type,
+      query.defaultLocale,
+      ...(query.slug === undefined ? [] : [query.slug]),
+    )
+    .all<{ slug: string; data: string; own?: string | null }>()
+  const parse = (json: string | null | undefined) =>
+    json
+      ? Object.fromEntries(
+          Object.entries(JSON.parse(json) as Record<string, unknown>).filter(([, v]) => v !== null),
+        )
+      : null
+  return results.map((row) => ({
+    slug: row.slug,
+    data: withFallback(parse(row.data) ?? {}, parse(row.own)),
+  }))
 }
 
 /**
- * Published items of a collection for a site loader, with only the fields the page renders.
- * Every loaded field is serialized into the hydration payload, so selecting less saves CPU
- * on Workers Free (see issue #8). Missing fields are left out of `data`.
+ * Published items of a collection for a site loader, with only the fields the page renders,
+ * in `locale` with the default locale filling any field not translated yet.
  */
 export async function listPublished<
   C extends CmsConfig,
@@ -127,30 +218,19 @@ export async function listPublished<
   options: { fields: readonly F[]; locale?: string },
 ): Promise<{ slug: string; data: Partial<Pick<DocOf<C, K>, F>> }[]> {
   const known = Object.keys(config.collections[type]?.fields ?? {})
-  // Names go into SQL, so only plain identifiers from the config are used.
-  const fields = options.fields.filter((f) => known.includes(f) && /^[A-Za-z_]\w*$/.test(f))
-  const projection = fields.length
-    ? `json_object(${fields.map((f) => `'${f}', json_extract(data, '$.${f}')`).join(', ')})`
-    : "'{}'"
-  const { results } = await db
-    .prepare(
-      `select slug, ${projection} as data from documents
-       where type = ? and locale = ? and status = 'published'
-       order by sort, created_at`,
-    )
-    .bind(type, options.locale ?? config.site.defaultLocale)
-    .all<{ slug: string; data: string }>()
-  return results.map((row) => ({
-    slug: row.slug,
-    data: Object.fromEntries(
-      Object.entries(JSON.parse(row.data) as Record<string, unknown>).filter(([, v]) => v !== null),
-    ) as Partial<Pick<DocOf<C, K>, F>>,
-  }))
+  const rows = await readPublished(db, {
+    type,
+    fields: options.fields.filter((f) => known.includes(f)),
+    locale: options.locale ?? config.site.defaultLocale,
+    defaultLocale: config.site.defaultLocale,
+  })
+  return rows as { slug: string; data: Partial<Pick<DocOf<C, K>, F>> }[]
 }
 
 /**
  * A page's saved content for a site loader: header fields, `seo` and `blocks`, or null
- * before its first save. Pages go live on save, so there is no draft to skip.
+ * before its first save. Pages go live on save, so there is no draft to skip. In another
+ * locale, fields not translated yet show the default locale's.
  */
 export async function getPage<
   C extends CmsConfig,
@@ -161,25 +241,85 @@ export async function getPage<
   name: K,
   options: { locale?: string } = {},
 ): Promise<PageOf<C, K> | null> {
-  const row = await drizzle(db)
-    .select({ data: documents.data })
-    .from(documents)
-    .where(
-      and(
-        eq(documents.type, PAGES_TYPE),
-        eq(documents.slug, name),
-        eq(documents.locale, options.locale ?? config.site.defaultLocale),
-        eq(documents.status, 'published'),
-      ),
-    )
-    .get()
+  const [row] = await readPublished(db, {
+    type: PAGES_TYPE,
+    slug: name,
+    locale: options.locale ?? config.site.defaultLocale,
+    defaultLocale: config.site.defaultLocale,
+  })
   return row ? (row.data as PageOf<C, K>) : null
+}
+
+/**
+ * The same few header fields of every saved page, by page name, e.g. the `title`s for the
+ * site's menu. A page not saved yet is left out.
+ */
+export async function pageHeaders<F extends string>(
+  db: D1Database,
+  config: CmsConfig,
+  fields: readonly F[],
+  options: { locale?: string } = {},
+): Promise<Partial<Record<string, Partial<Record<F, unknown>>>>> {
+  const rows = await readPublished(db, {
+    type: PAGES_TYPE,
+    fields,
+    locale: options.locale ?? config.site.defaultLocale,
+    defaultLocale: config.site.defaultLocale,
+  })
+  return Object.fromEntries(rows.map((r) => [r.slug, r.data as Partial<Record<F, unknown>>]))
+}
+
+/** A singleton's content (only `fields`, if given) for a site loader, or null before its first save. */
+export async function getSingleton<
+  C extends CmsConfig,
+  K extends keyof NonNullable<C['singletons']> & string,
+>(
+  db: D1Database,
+  config: C,
+  name: K,
+  options: { locale?: string; fields?: readonly (keyof SingletonOf<C, K> & string)[] } = {},
+): Promise<Partial<SingletonOf<C, K>> | null> {
+  const [row] = await readPublished(db, {
+    type: name,
+    slug: name,
+    ...(options.fields ? { fields: options.fields } : {}),
+    locale: options.locale ?? config.site.defaultLocale,
+    defaultLocale: config.site.defaultLocale,
+  })
+  return row ? (row.data as Partial<SingletonOf<C, K>>) : null
 }
 
 type Db = ReturnType<typeof drizzle>
 
 /** Every page is stored under this type, with the page name as its slug. */
 const PAGES_TYPE = PAGES_SCREEN
+
+/** Fields of one document; a page's depend on which page it is. */
+function fieldsOfDocument(config: CmsConfig, type: string, slug: string | null) {
+  const singletons = config.singletons ?? {}
+  const pages = config.pages ?? {}
+  if (Object.hasOwn(config.collections, type)) return config.collections[type]?.fields
+  if (Object.hasOwn(singletons, type)) return singletons[type]?.fields
+  if (type === PAGES_TYPE && slug !== null && Object.hasOwn(pages, slug))
+    return pageFields(config, slug)
+  return undefined
+}
+
+/** Locales translated from the default one. */
+const targetLocales = (config: CmsConfig) =>
+  config.site.locales.filter((l) => l !== config.site.defaultLocale)
+
+/**
+ * Nightly: translates every text still pending, e.g. after the day's free AI allowance ran
+ * out (it resets at 00:00 UTC). Call it from the site's `scheduled` handler.
+ */
+export async function retryTranslations(config: CmsConfig, env: CmsBindings, hooks: CmsHooks = {}) {
+  const translate = translatorFor(config, env, hooks)
+  if (!translate) return
+  await retryPendingTranslations(env.DB, config, translate, (type, slug) =>
+    fieldsOfDocument(config, type, slug),
+  )
+}
 
 /** Names in SQL JSON paths come from the config; only plain identifiers are allowed. */
 const isIdentifier = (name: string) => /^[A-Za-z_]\w*$/.test(name)
@@ -303,15 +443,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     Object.hasOwn(collections, type) ||
     Object.hasOwn(singletons, type) ||
     (hasPages && type === PAGES_TYPE)
-  /** Fields of one document; a page's depend on which page it is. */
-  const fieldsOf = (type: string, slug: string | null) =>
-    Object.hasOwn(collections, type)
-      ? collections[type]?.fields
-      : Object.hasOwn(singletons, type)
-        ? singletons[type]?.fields
-        : type === PAGES_TYPE && slug !== null && Object.hasOwn(pages, slug)
-          ? pageFields(config, slug)
-          : undefined
+  const fieldsOf = (type: string, slug: string | null) => fieldsOfDocument(config, type, slug)
   /** Only collections with `drafts: true` can hold Drög; everything else goes live on save. */
   const hasDrafts = (type: string) =>
     Object.hasOwn(collections, type) && collections[type]?.drafts === true
@@ -387,6 +519,7 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     locale: documents.locale,
     status: documents.status,
     data: documents.data,
+    translations: documents.translations,
     updatedAt: documents.updatedAt,
   }
   const toAdmin = (row: { updatedAt: Date } & Omit<AdminDocument, 'updatedAt'>): AdminDocument => ({
@@ -419,7 +552,41 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     return c.json(toAdmin(row))
   })
 
-  /** Validates a save body against the type's fields, or returns an error response. */
+  /** One locale's row of a save. */
+  interface SaveRow {
+    locale: string
+    data: Record<string, unknown>
+    translations: Translations | null
+    mediaIds: string[]
+    /** Keys of texts to translate once the save is in D1. */
+    todo: string[]
+  }
+
+  const rowOf = (row: LocaleRow & { todo: string[] }, locale: string, fields: Fields): SaveRow => ({
+    locale,
+    data: row.data,
+    translations: row.translations,
+    mediaIds: mediaIdsOf(fields, row.data),
+    todo: row.todo,
+  })
+
+  /** Every locale's row of one document. */
+  const localeRows = (db: Db, type: string, slug: string) =>
+    db
+      .select({
+        locale: documents.locale,
+        status: documents.status,
+        data: documents.data,
+        translations: documents.translations,
+      })
+      .from(documents)
+      .where(and(eq(documents.type, type), eq(documents.slug, slug)))
+
+  /**
+   * Validates a save body against the type's fields, or returns an error response. A save in
+   * the default locale also rebuilds every other locale's row from it; a save in another
+   * locale only changes that locale's translatable texts.
+   */
   async function readSave(
     c: { req: { json: () => Promise<unknown> }; env: CmsBindings },
     type: string,
@@ -431,34 +598,88 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!body.success) return { error: 400 as const, issues: z.treeifyError(body.error) }
     const locale = body.data.locale ?? config.site.defaultLocale
     if (!isLocale(locale)) return { error: 400 as const, issues: { errors: ['Unknown locale'] } }
+    const db = drizzle(c.env.DB)
+
+    if (locale !== config.site.defaultLocale) {
+      // A translation follows its source: it can't exist, or change status, on its own.
+      const rows = id ? await localeRows(db, type, id) : []
+      const source = rows.find((r) => r.locale === config.site.defaultLocale)
+      if (!source) return { error: 409 as const, issues: 'sourceFirst' as const }
+      const own = rows.find((r) => r.locale === locale)
+      const prev = own
+        ? { data: own.data, translations: own.translations ?? {} }
+        : planLocale(fields, source.data, null)
+      const edited = editLocale(fields, source.data, prev, body.data.data, body.data.approve)
+      const data = schemaOf(fields).safeParse(edited.data)
+      if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
+      return {
+        status: source.status,
+        slugs: {},
+        rows: [rowOf({ ...edited, data: data.data }, locale, fields)],
+      }
+    }
+
     const data = schemaOf(fields).safeParse(body.data.data)
     if (!data.success) return { error: 422 as const, issues: z.treeifyError(data.error) }
     const status = hasDrafts(type) ? (body.data.status ?? 'draft') : 'published'
     const values = data.data as Record<string, unknown>
     const mediaIds = mediaIdsOf(fields, values)
     if (mediaIds.length) {
-      const known = await drizzle(c.env.DB)
-        .select({ id: media.id })
-        .from(media)
-        .where(inArray(media.id, mediaIds))
+      const known = await db.select({ id: media.id }).from(media).where(inArray(media.id, mediaIds))
       if (known.length !== mediaIds.length)
         return { error: 422 as const, issues: 'unknownMedia' as const }
     }
     const slugs = await resolveSlugs(
-      drizzle(c.env.DB),
+      db,
       { type, id, locale, defaultLocale: config.site.defaultLocale },
       fields,
       values,
     )
-    return {
-      locale,
-      status,
-      slugs,
-      mediaIds,
-      data: values,
-      needsReview: body.data.needsReview ?? false,
+    const existing = id ? await localeRows(db, type, id) : []
+    const targets = targetLocales(config).map((target) => {
+      const own = existing.find((r) => r.locale === target)
+      const prev = own ? { data: own.data, translations: own.translations ?? {} } : null
+      return rowOf(planLocale(fields, values, prev), target, fields)
+    })
+    const main: SaveRow = { locale, data: values, translations: null, mediaIds, todo: [] }
+    return { status, slugs, rows: [main, ...targets] }
+  }
+
+  /** Translates what a save left pending, after the response; a save never waits on it. */
+  function translateLater(
+    c: Context<{ Bindings: CmsBindings }>,
+    type: string,
+    slug: string,
+    rows: SaveRow[],
+  ) {
+    const translate = translatorFor(config, c.env, hooks)
+    const fields = fieldsOf(type, slug)
+    if (!translate || !fields) return
+    const work = Promise.all(
+      rows
+        .filter((r) => r.todo.length > 0)
+        .map((r) =>
+          translateDocument(c.env.DB, translate, {
+            type,
+            slug,
+            fields,
+            from: config.site.defaultLocale,
+            to: r.locale,
+          }),
+        ),
+    )
+    try {
+      c.executionCtx.waitUntil(work)
+    } catch {
+      // No execution context (a plain app.request in tests): the work still runs.
     }
   }
+
+  const rowValues = (r: SaveRow) => ({
+    data: r.data,
+    translations: r.translations,
+    needsReview: r.translations ? needsReview(r.translations) : false,
+  })
 
   app.post('/admin/content/:type', async (c) => {
     const type = c.req.param('type')
@@ -475,21 +696,23 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
       .get()
     const now = new Date()
     await db.batch([
-      db.insert(documents).values({
-        id: crypto.randomUUID(),
-        type,
-        slug,
-        locale: save.locale,
-        status: save.status,
-        data: save.data,
-        needsReview: save.needsReview,
-        sort: (last?.sort ?? -1) + 1,
-        updatedAt: now,
-        publishedAt: save.status === 'published' ? now : null,
-      }),
-      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
+      db.insert(documents).values(
+        save.rows.map((r) => ({
+          id: crypto.randomUUID(),
+          type,
+          slug,
+          locale: r.locale,
+          status: save.status,
+          ...rowValues(r),
+          sort: (last?.sort ?? -1) + 1,
+          updatedAt: now,
+          publishedAt: save.status === 'published' ? now : null,
+        })),
+      ),
+      ...save.rows.flatMap((r) => setRefs(db, { type, slug, locale: r.locale }, r.mediaIds)),
       bumpContentVersion(db),
     ])
+    translateLater(c, type, slug, save.rows)
     return c.json({ slug }, 201)
   })
 
@@ -509,21 +732,20 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
     if (!exists && !isSingleton) return c.json({ error: 'Not found' }, 404)
 
     const now = new Date()
-    const row = {
-      data: save.data,
-      needsReview: save.needsReview,
-      status: save.status,
-      updatedAt: now,
-    }
     const ofDoc = and(eq(documents.type, type), eq(documents.slug, slug))
-    await db.batch([
-      db
+    const upserts = save.rows.map((r) => {
+      const row = { ...rowValues(r), status: save.status, updatedAt: now }
+      return db
         .insert(documents)
-        .values({ id: crypto.randomUUID(), type, slug, locale: save.locale, ...row })
+        .values({ id: crypto.randomUUID(), type, slug, locale: r.locale, ...row })
         .onConflictDoUpdate({
           target: [documents.type, documents.slug, documents.locale],
           set: row,
-        }),
+        })
+    })
+    await db.batch([
+      bumpContentVersion(db),
+      ...upserts,
       // Drög/Birt belongs to the document, so every locale follows it.
       db.update(documents).set({ status: save.status }).where(ofDoc),
       db
@@ -533,9 +755,9 @@ export function createCmsApi(config: CmsConfig, hooks: CmsHooks = {}) {
           and(ofDoc, eq(documents.status, 'published'), sql`${documents.publishedAt} is null`),
         ),
       ...setSlugs(db, type, slug, save.slugs),
-      ...setRefs(db, { type, slug, locale: save.locale }, save.mediaIds),
-      bumpContentVersion(db),
+      ...save.rows.flatMap((r) => setRefs(db, { type, slug, locale: r.locale }, r.mediaIds)),
     ])
+    translateLater(c, type, slug, save.rows)
     return c.json({ ok: true })
   })
 

@@ -29,8 +29,17 @@ export interface SingletonConfig<F extends Fields = Fields> {
  * a list of blocks picked from the site's `blocks` library.
  */
 export interface PageConfig<F extends Fields = Fields> {
-  /** Path of the Icelandic page, e.g. "/thjonusta". None for a page the site shows itself (404). */
+  /**
+   * Path of the page in the default locale, e.g. "/thjonusta". None for a page the site shows
+   * itself (404). Other locales sit under `/<locale>` (see `locales.ts`).
+   */
   route?: string
+  /**
+   * The page's path in each other locale, without the locale prefix, e.g. `{ en: '/services' }`
+   * for "/en/services". Fixed in the config; editors can't change it. Required for every
+   * other locale when the page has a `route`.
+   */
+  localeRoutes?: Readonly<Record<string, string>>
   /** The page header (eyebrow, heading, lead …), stored at the top level of the page. */
   fields: F
   /** Stored under `seo`. Its fallbacks point at header fields. */
@@ -67,6 +76,16 @@ export interface CmsConfig {
   blocks?: Record<string, BlockConfig>
   /** The site's fixed pages, listed in Vefstjórn under Síður og textar. */
   pages?: Record<string, PageConfig>
+  /**
+   * What the translation model is told about the site. Translatable fields of the default
+   * locale are machine translated into the other locales after each save.
+   */
+  translation?: {
+    /** e.g. "Berghald, an Icelandic landscaping company". */
+    about?: string
+    /** Source term → the term to use in the translation. */
+    glossary?: Record<string, string>
+  }
 }
 
 /** An `seo()` field's fallbacks must name fields of the same owner. */
@@ -84,15 +103,39 @@ function checkSeo(owner: string, fields: Fields) {
 
 function checkPages(config: CmsConfig) {
   const library = config.blocks ?? {}
-  const routes = new Set<string>()
+  const { locales, defaultLocale } = config.site
+  const others = locales.filter((l) => l !== defaultLocale)
+  const routes = new Map<string, Set<string>>(locales.map((l) => [l, new Set()]))
+  const addRoute = (name: string, locale: string, route: string) => {
+    if (!route.startsWith('/')) throw new Error(`Page "${name}": route must start with /`)
+    if (route !== '/' && route.endsWith('/')) {
+      throw new Error(`Page "${name}": route must not end with /`)
+    }
+    if (locale === defaultLocale && others.includes(route.split('/')[1] ?? '')) {
+      throw new Error(`Page "${name}": route "${route}" starts with a locale prefix`)
+    }
+    const taken = routes.get(locale)
+    if (taken?.has(route)) throw new Error(`Route "${route}" (${locale}) is used by two pages`)
+    taken?.add(route)
+  }
   for (const [name, page] of Object.entries(config.pages ?? {})) {
     if (!/^[a-z][A-Za-z0-9]*$/.test(name)) {
       throw new Error(`Page name "${name}" must be camelCase letters and digits`)
     }
+    for (const locale of Object.keys(page.localeRoutes ?? {})) {
+      if (!others.includes(locale)) {
+        throw new Error(`Page "${name}" has a route for "${locale}", which isn't another locale`)
+      }
+    }
     if (page.route !== undefined) {
-      if (!page.route.startsWith('/')) throw new Error(`Page "${name}": route must start with /`)
-      if (routes.has(page.route)) throw new Error(`Route "${page.route}" is used by two pages`)
-      routes.add(page.route)
+      addRoute(name, defaultLocale, page.route)
+      for (const locale of others) {
+        const route = page.localeRoutes?.[locale]
+        if (route === undefined) throw new Error(`Page "${name}" has no route for "${locale}"`)
+        addRoute(name, locale, route)
+      }
+    } else if (page.localeRoutes && Object.keys(page.localeRoutes).length > 0) {
+      throw new Error(`Page "${name}" has locale routes but no route`)
     }
     for (const field of RESERVED_FIELDS) {
       if (Object.hasOwn(page.fields, field)) {

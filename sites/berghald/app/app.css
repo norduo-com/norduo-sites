@@ -1,14 +1,104 @@
 @import 'tailwindcss';
 @import '@norduo/ui/tokens.css';
+/* Outfit, latin subset (covers þ, ð, æ, ö and the accented vowels). */
+@import '@fontsource/outfit/latin-300.css';
+@import '@fontsource/outfit/latin-400.css';
+@import '@fontsource/outfit/latin-500.css';
+@import '@fontsource/outfit/latin-600.css';
 
 /* Let Tailwind see the classes used by the shared CMS admin. */
 @source '../../../packages/cms/src';
 
+/* Berghald's colours and type, from the prototype. */
 @theme {
-  --font-sans: 'Outfit', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Outfit', 'Avenir Next', 'Segoe UI', ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #14181a;
+  --color-muted: #5c6460;
+  --color-bg: #f4f5f1;
+  --color-card: #ffffff;
+  --color-green: #2f5a36;
+  --color-deep: #23452a;
+  --color-acc: #ddf28c;
+  --color-line: #dde0d9;
 }
 
-html {
-  background: #f4f4f0;
-  color: #14181a;
+@layer base {
+  html {
+    background: var(--color-bg);
+    color: var(--color-ink);
+    -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
+  }
+  body {
+    font-weight: 300;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    text-wrap: balance;
+  }
+  :focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 3px;
+  }
+}
+
+/* The green gradient of the hero and page header boxes. */
+@utility bg-panel {
+  background:
+    radial-gradient(60% 55% at 68% 42%, #86b274 0%, rgb(134 178 116 / 0) 70%),
+    linear-gradient(165deg, #4d7a47 0%, var(--color-green) 55%, #1f3d27 100%);
+}
+
+@layer components {
+  .eyebrow {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .h2 {
+    font-size: clamp(32px, 4vw, 56px);
+    line-height: 1.08;
+  }
+  .lead {
+    font-size: clamp(17px, 1.4vw, 20px);
+  }
+  .footer-heading {
+    margin-bottom: 14px;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: rgb(255 255 255 / 0.6);
+  }
+  .btn {
+    display: inline-flex;
+    height: 52px;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 0 24px;
+    border-radius: 999px;
+    font-size: 16px;
+    font-weight: 500;
+    white-space: nowrap;
+    transition: transform 0.25s;
+  }
+  .btn:hover {
+    transform: translateY(-2px);
+  }
+  .btn-sm {
+    height: 44px;
+    padding: 0 18px;
+    font-size: 15px;
+  }
+  .btn-acc {
+    background: var(--color-acc);
+    color: var(--color-ink);
+  }
 }

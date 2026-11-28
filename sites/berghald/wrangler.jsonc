@@ -33,9 +33,12 @@
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-media" }],
   // Photo widths, blurred previews and JPEG → WebP masters. Local dev uses Sharp.
   "images": { "binding": "IMAGES" },
+  // Machine translation of translatable fields after each save (Workers AI, free allowance).
+  // Local dev and e2e use a fake translator instead (TRANSLATOR in .dev.vars).
+  "ai": { "binding": "AI" },
   // The deployed version's id, used as the Sentry release.
   "version_metadata": { "binding": "CF_VERSION_METADATA" },
-  // Nightly backup of D1 to R2 (03:00 UTC).
+  // Nightly (03:00 UTC): backup of D1 to R2, and a retry of translations left pending.
   "triggers": { "crons": ["0 3 * * *"] },
   "env": {
     // PR previews: its own Worker, D1 and R2, so a PR never touches live content.
@@ -64,6 +67,7 @@
       ],
       "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "berghald-preview-media" }],
       "images": { "binding": "IMAGES" },
+      "ai": { "binding": "AI" },
       "version_metadata": { "binding": "CF_VERSION_METADATA" },
       "triggers": { "crons": [] },
     },
