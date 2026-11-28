@@ -11,12 +11,13 @@ test('a project saves services, work period, year and rich text, and gets a slug
   await page.goto('/vefstjorn/services')
   await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(service)
+  await page.getByRole('group', { name: 'Árstíðir', exact: true }).getByLabel('Sumar').check()
   await page.getByRole('button', { name: 'Vista', exact: true }).click()
   await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
 
   const title = `Garður í Garðabæ ${id}`
   await page.goto('/vefstjorn/projects')
-  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
+  await page.getByRole('link', { name: 'Nýtt', exact: true }).click()
   await page.getByLabel('Heiti').fill(title)
   await page.getByRole('group', { name: 'Þjónusta', exact: true }).getByLabel(service).check()
   const period = page.getByRole('group', { name: 'Verktími', exact: true })
@@ -34,9 +35,9 @@ test('a project saves services, work period, year and rich text, and gets a slug
   await expect(page.getByText('Vistað', { exact: true })).toBeVisible()
   await expect(page.getByText(`gardur-i-gardabae-${id}`, { exact: true })).toBeVisible()
 
-  // Open it again from the list: everything comes back as saved.
+  // The new item gets its own address, so a reload opens it again: everything comes back.
+  await expect(page).toHaveURL(/\/vefstjorn\/projects\/[0-9a-f-]{36}$/)
   await page.reload()
-  await page.getByRole('button', { name: new RegExp(title) }).click()
   await expect(
     page.getByRole('group', { name: 'Þjónusta', exact: true }).getByLabel(service),
   ).toBeChecked()
@@ -47,8 +48,7 @@ test('a project saves services, work period, year and rich text, and gets a slug
 })
 
 test('Vefstjórn flags a year that is not a number and an invalid email', async ({ page }) => {
-  await page.goto('/vefstjorn/projects')
-  await page.getByRole('button', { name: 'Nýtt', exact: true }).click()
+  await page.goto('/vefstjorn/projects/_new')
   await page.getByLabel('Heiti').fill(`Prófun ${tag()}`)
   await page.getByLabel('Ár').fill('í fyrra')
   await page.getByRole('button', { name: 'Vista', exact: true }).click()

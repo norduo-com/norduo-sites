@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  badgesOf,
   block,
   blocks,
   defineCms,
@@ -102,6 +103,18 @@ describe('defineCms', () => {
     ).toThrow(/lead/)
   })
 
+  it('rejects a shortcut to a screen the site does not have', () => {
+    const define = (to: string) => () =>
+      defineCms({
+        site: { id: 'x', name: 'X', url: 'https://x.is', locales: ['is'], defaultLocale: 'is' },
+        collections: { projects: { fields: { title: text() } } },
+        admin: { shortcuts: [{ name: 'newProject', to }] },
+      })
+    expect(define('projects/_new')).not.toThrow()
+    expect(define('media')).not.toThrow()
+    expect(define('verkefni')).toThrow(/verkefni/)
+  })
+
   it('rejects a default locale that is not listed', () => {
     expect(() =>
       defineCms({
@@ -109,6 +122,16 @@ describe('defineCms', () => {
         collections: {},
       }),
     ).toThrow()
+  })
+})
+
+describe('badgesOf', () => {
+  const doc = { slug: 'a', status: 'published', data: {} } as const
+
+  it("are the hook's badges, or none without a hook", () => {
+    const many = { fields: {}, list: { badge: () => [{ label: 'x' }, { label: 'y' }] } }
+    expect(badgesOf(many, doc).map((b) => b.label)).toEqual(['x', 'y'])
+    expect(badgesOf({ fields: {} }, doc)).toEqual([])
   })
 })
 

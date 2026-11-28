@@ -57,7 +57,30 @@
     "pick": "Veldu atriði í listanum eða búðu til nýtt.",
     "saved": "Vistað",
     "confirmDelete": "Viltu eyða þessu atriði? Það er ekki hægt að afturkalla.",
-    "unsupported": "Þessum reit er ekki hægt að breyta hér enn."
+    "unsupported": "Þessum reit er ekki hægt að breyta hér enn.",
+    "notFound": "Þetta atriði fannst ekki. Því gæti hafa verið eytt."
+  },
+  "table": {
+    "title": "Heiti",
+    "tags": "Merki",
+    "updated": "Síðast breytt"
+  },
+  "note": {
+    "label": "Ekki breytanlegt hér"
+  },
+  "warnings": {
+    "label": "Athugið"
+  },
+  "overview": {
+    "shortcuts": "Flýtileiðir"
+  },
+  "repeater": {
+    "empty": "Ekkert hér enn.",
+    "position": "{{label}} {{n}}",
+    "add": "Bæta við í „{{label}}“",
+    "moveUp": "Færa {{item}} upp",
+    "moveDown": "Færa {{item}} niður",
+    "remove": "Fjarlægja {{item}}"
   },
   "errors": {
     "required": "Þennan reit þarf að fylla út.",

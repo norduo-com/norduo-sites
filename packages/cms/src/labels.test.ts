@@ -137,3 +137,29 @@ describe('pages', () => {
     expect(missingLabels(withPages, { ...base, pages })).toEqual([])
   })
 })
+
+describe('notes and shortcuts', () => {
+  const withNotes = defineCms({
+    site: { id: 't', name: 'T', url: 'https://t.is', locales: ['is'], defaultLocale: 'is' },
+    admin: { shortcuts: [{ name: 'newProject', to: 'projects/_new' }] },
+    collections: { projects: { note: true, fields: {} } },
+    singletons: { settings: { note: true, fields: {} } },
+    pages: { cookies: { route: '/', note: true, fields: {}, seo: seo() } },
+  })
+  const base = {
+    collections: { projects: { label: 'Verkefni' } },
+    singletons: { settings: { label: 'Stillingar' } },
+    pages: { cookies: { label: 'Vafrakökur' } },
+  }
+
+  it('need the text of each note and the label of each shortcut', () => {
+    expect(missingLabels(withNotes, base).sort()).toEqual(
+      [
+        'admin.shortcuts.newProject',
+        'collections.projects.note',
+        'pages.cookies.note',
+        'singletons.settings.note',
+      ].sort(),
+    )
+  })
+})

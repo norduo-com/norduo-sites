@@ -35,10 +35,16 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
    - rich text is stored as a small JSON tree (paragraphs, headings, lists; bold, italic, links and the site's own marks), not HTML, so the Worker never sanitizes markup; `richTextToHtml` escapes it on output
    - a `slug()` is made from its `from` field while a draft and locked on first publish; the server owns it and editors can't type it
 2. **Site config (`sites/<name>/cms.config.ts`):** the site's
-   - collections (e.g. Verkefni, Þjónusta)
+   - collections (e.g. Verkefni, Þjónusta), each with `drafts`, `sortable` and `layout`: `split` (the list beside the selected item's editor, the default) or `table` (a table, each item on its own edit page at `<collection>/<slug>`, a new one at `<collection>/_new`)
    - singletons (e.g. settings); `showUnder: 'pages'` lists one under Síður og textar instead of the menu (the footer)
    - pages: a fixed set, each with its `route` and its path in every other locale (`localeRoutes: { en: '/services' }`), its own header fields, `seo()` and the block types it allows from the site-wide `blocks` library. The header and SEO are fixed fields, not blocks. Pages are stored as type `pages` with the page name as the slug, so a page can share its name with a collection.
    - the `blocks` library (e.g. intro, services carousel, quote form)
+   - **config hooks**, all optional and generic: data and pure functions that Vefstjórn runs, never site React components. Every string they return is a key in the site's `cms` namespace, so the config still holds no wording.
+     - `list.notice(now)`: a banner above a collection's list (Berghald: which season it is, on Þjónusta)
+     - `list.badge(doc)`: tags on each row (Berghald: a service's seasons)
+     - `warnings(docs)`: collection-wide warnings on the list and in the editor; they never block a save (Berghald: more than four published projects on the home page)
+     - `note: true` on a collection, singleton or page: a side card with a lock icon, its text at `<owner>.note` (Berghald: what Norduo manages, on Stillingar; the cookie table, on Vafrakökur)
+     - `admin.shortcuts: [{ name, to }]`: links on Yfirlit, labelled `admin.shortcuts.<name>`
 3. **Site components:** each site renders its own blocks. The CMS stores _what_ a block contains, and the site decides _how_ it looks.
 
 **Pages = a fixed header + SEO, then an ordered list of blocks.** In the page's editor, editors add blocks from the page's allowed types, remove them and move them up or down; nothing is stored until the page is saved. Blocks that list a collection or read settings store only their own text (eyebrow, heading, lead, button); their items come from the collection. A new site with different pages or elements defines its own blocks, and the CMS needs no changes.
@@ -54,7 +60,7 @@ The CMS knows nothing about any site's pages or elements. Each site describes it
 
 **SEO:** `seo()` holds a keyword, title (60), description (160) and an optional share image. An empty title or description falls back to the owner's `titleFrom` / `descriptionFrom` field (rich text as plain text, cut at 160). The keyword is shown only in Vefstjórn's Google preview, never output as a meta tag. `seoMeta()` resolves the fallbacks for the site's `<head>`.
 
-**Per-site admin branding:** the config also sets Vefstjórn's logo, colours, menu order and labels, so each client gets a branded admin from the same code.
+**Per-site admin branding:** in v1 the config sets only Vefstjórn's logo, title and menu order, on its neutral theme; labels come from the site's `cms` namespace. Colours, or a theme of the site's own, come later.
 
 ## 3. Rendering & publishing
 
@@ -189,10 +195,11 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 
 - **In:**
   - Yfirlit, Verkefni, Myndasafn, Þjónusta, Teymi, Tæki, Síður og textar, Stillingar
+  - Áskrift: a generic screen, turned on per site (issue #18)
   - Drafts
   - English machine-translation drafts on save, flagged "Óyfirfarið"
   - Enquiries saved to D1, with no inbox screen yet
-- **Out:** GA on Yfirlit, SEO overview/score, tutorial videos, users screen/invites, Google/Apple login, admin language switch, reviews editing, enquiries inbox.
+- **Out:** GA on Yfirlit, SEO overview/score, tutorial videos, users screen/invites, Google/Apple login, admin language switch, a separate reviews screen (reviews are edited in the Umsagnir block), enquiries inbox.
 
 ## 13. Known gaps in the scaffold
 
@@ -200,4 +207,4 @@ Expected cost: 0 kr on Cloudflare free tiers (100k Worker requests/day, D1 5 GB,
 - Closed: the CMS API has no public routes. Site loaders read D1 with `getPage` and `listPublished`, which pick the fields to send; a public `/content/:type` route returned whole documents, settings and SEO keywords included. `POST /enquiries` comes back with Turnstile in #44.
 - Closed: `wrangler.jsonc` has the real D1 id, `workers_dev` and preview URLs are off, and the Worker is served only on its custom domain, behind Access for `/vefstjorn` and `/api/cms/admin`.
 - `ENVIRONMENT=development` in `.dev.vars` turns the Access check and the page cache off. `vite build` copies `.dev.vars` into the build, so never deploy from a working copy that has one; CI deploys from a clean checkout.
-- The Vefstjórn UI has a generic split list/editor for collections and a form for singletons. Every field type has an input except repeater; a page's blocks are added, removed and moved in its editor. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
+- The Vefstjórn UI has a generic split list/editor and a table with edit pages for collections, and a form for singletons. Every field type has an input; a page's blocks and a repeater's items are added, removed and moved in its editor. The other screens and field editors from the prototype (Berghald.is — prufuvefur) still need porting.
